@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs><linearGradient id="ground" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#475e83"/><stop offset="1" stop-color="#91a5b9"/></linearGradient>
+    <pattern id="paper" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M2 1h.5M5 4h.6M1 6h.4" stroke="#f6e3d6" opacity=".23" stroke-width=".65" stroke-linecap="round"/></pattern></defs>
+  <path fill="url(#ground)" d="M0 0h120v120H0z"/><circle cx="60" cy="60" r="49" fill="none" stroke="#495979" opacity=".36"/>
+  <circle cx="60" cy="60" r="46" fill="none" stroke="#f0d3bb" opacity=".27" stroke-dasharray="1 2.4"/>
+  <path d="M17 28l-4 10m10-4-4 11m79-12-4 11m13-7-3 9m-91 4-4 11m95-9-3 11" stroke="#e6cae0" stroke-width="1.6" stroke-linecap="round" opacity=".76"/>
+  <path fill="#455477" d="M30 120q2-17 18-23l13-6 17 2q18 6 23 27Z"/><path fill="#d69da6" d="M46 99l12-5 17 1 13 6-21 12Z"/><path fill="#cea2a0" d="M54 76h17v22l-9 5-10-8Z"/><path fill="#f0c3ad" d="M42 62c0-15 12-26 22-25 15 1 24 13 22 29-3 18-13 25-22 25-12 0-22-13-22-29Z"/><path fill="#4a4c72" d="M41 67c-3-12-5-19 4-30l20-8 20 7 6 17-6 17-6-11-4-10-12 10-6-9q-4 7-16 10Z"/><path fill="#d39aa9" d="M19 51q4-20 19-28 12-7 23-7 18 0 32 11 11 9 14 24-9-5-18 0-10-6-19 0-9-6-19 0-8-5-17 0-7-5-15 0Z"/><path d="M61 13v5m0 3q-17 9-20 28m21-28q17 9 20 28m-20 1v10" fill="none" stroke="#805f85" stroke-width="1.5" stroke-linecap="round"/><path d="M53 68q3-3 6 0m12 0q3-3 6 0m-12 10h3" fill="none" stroke="#79536c" stroke-width="1.5" stroke-linecap="round"/>
+  <path fill="url(#paper)" d="M0 0h120v120H0z"/>
+</svg>
