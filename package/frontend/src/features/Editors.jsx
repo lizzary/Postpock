@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Select from '../components/Select.jsx'
 import { Dialog, Icon } from '../components/UI.jsx'
 import { local, newId, platforms, today } from '../data/library.js'
 
@@ -14,7 +15,7 @@ export function webUrl(value) {
   }
 }
 
-function AssetField({ label, value, onChange, accept, language, required = false }) {
+function AssetField({ label, value, onChange, accept, language }) {
   const en = language === 'en'
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -49,7 +50,7 @@ function AssetField({ label, value, onChange, accept, language, required = false
   return <div className="asset-field field">
     <label><span>{label}</span>
       <input className="input" type={isLocal || isFixture ? 'text' : 'url'} value={sourceLabel || ''} readOnly={isLocal || isFixture}
-        placeholder={en ? 'https://…' : '输入网址或选取本地文件'} required={required && !value}
+        placeholder={en ? 'https://…' : '输入网址或选取本地文件'}
         pattern={isLocal || isFixture ? undefined : 'https?://.+'}
         onChange={(event) => onChange(event.target.value)} />
     </label>
@@ -73,7 +74,7 @@ export function AuthorEditor({ author, language, onClose, onSave }) {
     if (event.currentTarget.querySelector('.file-picker input:disabled')) return
     const fields = new FormData(event.currentTarget)
     const name = fields.get('name').trim()
-    if (!name || !avatar) return
+    if (!name) return
     onSave({
       ...author, platform, avatar, cover,
       name: updateText(author?.name, name, language),
@@ -87,10 +88,11 @@ export function AuthorEditor({ author, language, onClose, onSave }) {
     <form className="editor-form" onSubmit={submit}>
       <div className="form-pair">
         <label className="field"><span>{en ? 'Creator name' : '作者名称'}</span><input className="input" name="name" defaultValue={local(author?.name, language)} required maxLength={80} pattern=".*\S.*" /></label>
-        <label className="field"><span>{en ? 'Platform' : '所属平台'}</span><select className="input" value={platform} onChange={(event) => setPlatform(event.target.value)}>{platforms.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}</select></label>
+        <Select showLabel label={en ? 'Platform' : '所属平台'} value={platform} onChange={setPlatform} language={language}
+          options={platforms.map((entry) => ({ value: entry.id, label: entry.name }))} />
       </div>
       <label className="field"><span>{en ? 'Creator page URL' : '作者主页链接'}</span><input className="input" type="url" name="url" defaultValue={author?.url} placeholder={platforms.find((entry) => entry.id === platform).url} pattern="https?://.+" /></label>
-      <AssetField label={en ? 'Avatar' : '头像'} value={avatar} onChange={setAvatar} accept="image/*" required language={language} />
+      <AssetField label={en ? 'Avatar (optional)' : '头像（可选）'} value={avatar} onChange={setAvatar} accept="image/*" language={language} />
       <AssetField label={en ? 'Header image (optional)' : '头图（可选）'} value={cover} onChange={setCover} accept="image/*" language={language} />
       <label className="field"><span>{en ? 'Biography' : '作者简介'}</span><textarea className="input" name="description" rows="3" defaultValue={local(author?.description, language)} maxLength={1000} /></label>
       <div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose}>{en ? 'Cancel' : '取消'}</button>
@@ -127,7 +129,14 @@ export function PostEditor({ post, author, authors, posts, language, onClose, on
     next[target] = block
     return next
   })
-  const linkTargets = posts.filter((entry) => entry.id !== post?.id)
+  const authorNames = new Map(authors.map((entry) => [entry.id, local(entry.name, language)]))
+  const linkTargets = [
+    { value: '', label: en ? 'External URL' : '外部链接' },
+    ...posts.filter((entry) => entry.id !== post?.id).map((entry) => ({
+      value: entry.id,
+      label: `${authorNames.get(entry.authorId)} / ${local(entry.title, language)}`,
+    })),
+  ]
 
   function submit(event) {
     event.preventDefault()
@@ -180,12 +189,8 @@ export function PostEditor({ post, author, authors, posts, language, onClose, on
           </>}
           {['link', 'linkCard'].includes(block.type) && <>
             <label className="field"><span>{en ? 'Link title' : '链接标题'}</span><input className="input" value={local(block.title, language)} onChange={(event) => change(block.editorId, { title: updateText(block.title, event.target.value, language) })} /></label>
-            <label className="field"><span>{en ? 'Link to an archived post' : '链接到库内文章'}</span>
-              <select className="input" value={block.postId ?? ''} onChange={(event) => change(block.editorId, { postId: event.target.value })}>
-                <option value="">{en ? 'External URL' : '外部链接'}</option>
-                {linkTargets.map((entry) => <option key={entry.id} value={entry.id}>{local(authors.find((item) => item.id === entry.authorId)?.name, language)} / {local(entry.title, language)}</option>)}
-              </select>
-            </label>
+            <Select showLabel searchable label={en ? 'Link to an archived post' : '链接到库内文章'} value={block.postId ?? ''} language={language}
+              options={linkTargets} onChange={(postId) => change(block.editorId, { postId })} />
             {!block.postId && <label className="field"><span>URL</span><input className="input" type="url" value={block.url ?? ''} pattern="https?://.+" onChange={(event) => change(block.editorId, { url: event.target.value })} /></label>}
             {block.type === 'linkCard' && <>
               <label className="field"><span>{en ? 'Description' : '链接简介'}</span><input className="input" value={local(block.text, language)} onChange={(event) => change(block.editorId, { text: updateText(block.text, event.target.value, language) })} /></label>
@@ -193,9 +198,11 @@ export function PostEditor({ post, author, authors, posts, language, onClose, on
             </>}
           </>}
         </section>)}
-        <div className="add-block"><select className="input" aria-label={en ? 'Content type' : '内容类型'} value={newType} onChange={(event) => setNewType(event.target.value)}>
-          {blockTypes.map(([type]) => <option key={type} value={type}>{label(type)}</option>)}
-        </select><button className="button button-soft" type="button" onClick={() => setBlocks((current) => [...current, { type: newType, editorId: newId() }])}><Icon name="plus" size={16} />{en ? 'Add block' : '添加内容'}</button></div>
+        <div className="add-block">
+          <Select label={en ? 'Content type' : '内容类型'} value={newType} onChange={setNewType} language={language}
+            options={blockTypes.map(([type]) => ({ value: type, label: label(type) }))} />
+          <button className="button button-soft" type="button" onClick={() => setBlocks((current) => [...current, { type: newType, editorId: newId() }])}><Icon name="plus" size={16} />{en ? 'Add block' : '添加内容'}</button>
+        </div>
       </fieldset>
       <div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose}>{en ? 'Cancel' : '取消'}</button>
         <button className="button button-primary"><Icon name="check" size={17} />{en ? 'Save post' : '保存文章'}</button></div>

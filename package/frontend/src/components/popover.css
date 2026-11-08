@@ -1,0 +1,64 @@
+:root {
+  --popover-outline: color-mix(in srgb, var(--line) 82%, var(--ink));
+  --popover-shadow: #17122227;
+}
+
+:root[data-theme="dark"] { --popover-shadow: #0b081659; }
+
+.anchored-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  --popover-shadow-direction: 10px;
+  max-width: calc(100vw - 20px);
+  max-height: var(--popover-available-height, 400px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--line) transparent;
+  border: 1px solid var(--popover-outline);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 var(--popover-shadow-direction) 22px -4px var(--popover-shadow);
+  transform-origin: center top;
+  transition: opacity 170ms ease-out, transform 170ms cubic-bezier(.22, .68, .25, 1),
+    display 170ms allow-discrete, overlay 170ms allow-discrete;
+}
+
+.anchored-popover[data-placement="above"] {
+  --popover-shadow-direction: -10px;
+  transform-origin: center bottom;
+}
+
+.anchored-popover[data-placement="below"][data-join-start] { border-top-left-radius: 0; }
+.anchored-popover[data-placement="below"][data-join-end] { border-top-right-radius: 0; }
+.anchored-popover[data-placement="above"][data-join-start] { border-bottom-left-radius: 0; }
+.anchored-popover[data-placement="above"][data-join-end] { border-bottom-right-radius: 0; }
+
+.anchored-popover:not(:popover-open) {
+  display: none;
+  opacity: 0;
+  transform: scaleY(.95);
+  pointer-events: none;
+  transition-duration: 140ms;
+}
+
+@starting-style {
+  .anchored-popover:popover-open {
+    opacity: 0;
+    transform: scaleY(.95);
+  }
+}
+
+:is(.input, .icon-button)[data-popover-side="below"] { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+:is(.input, .icon-button)[data-popover-side="above"] { border-top-left-radius: 0; border-top-right-radius: 0; }
+:is(.input, .icon-button)[data-popover-side] { border-color: var(--popover-outline); }
+.icon-button[data-popover-side]:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anchored-popover, .anchored-popover:not(:popover-open) { transition: none; }
+}

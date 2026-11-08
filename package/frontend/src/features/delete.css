@@ -1,0 +1,18 @@
+.button.button-danger { color: var(--danger); }
+
+.button.button-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
+}
+
+.button.button-danger-solid {
+  background: var(--danger);
+  color: var(--paper);
+}
+
+.button.button-danger-solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 83%, var(--ink));
+  color: var(--paper);
+}
+
+.delete-dialog .dialog-heading { overflow-wrap: anywhere; }

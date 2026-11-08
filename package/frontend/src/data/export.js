@@ -1,31 +1,36 @@
 import { local } from './library.js';
 
-const aggregationKeys = [
-  ['postTitle', '投稿标题', 'Post title'], ['postId', '投稿 ID', 'Post ID'],
-  ['publishedAt', '发布日期', 'Publication date'], ['archivedAt', '归档日期', 'Archive date'],
-  ['year', '发布年', 'Publication year'], ['month', '发布月', 'Publication month'],
-  ['day', '发布日', 'Publication day'], ['yearMonth', '发布年月', 'Year and month'],
-  ['yearDay', '发布年日', 'Year and day'], ['monthDay', '发布月日', 'Month and day'],
-  ['archiveYear', '归档年', 'Archive year'], ['archiveMonth', '归档月', 'Archive month'],
-  ['archiveDay', '归档日', 'Archive day'], ['archiveYearMonth', '归档年月', 'Archive year and month'],
-  ['archiveYearDay', '归档年日', 'Archive year and day'], ['archiveMonthDay', '归档月日', 'Archive month and day'],
-  ['resource', '资源类型', 'Resource type'],
-  ['extension', '文件扩展名', 'File extension'], ['authorName', '作者名', 'Creator name'],
-  ['authorId', '作者 ID', 'Creator ID'],
+const creatorKeys = [['authorName', '作者名', 'Creator name'], ['authorId', '作者 ID', 'Creator ID']];
+const postKeys = [['postTitle', '投稿标题', 'Post title'], ['postId', '投稿 ID', 'Post ID']];
+const publicationKeys = [
+  ['publishedAt', '发布日期', 'Publication date'], ['year', '发布年', 'Publication year'],
+  ['month', '发布月', 'Publication month'], ['day', '发布日', 'Publication day'],
 ];
+const archiveDateKey = ['archivedAt', '归档日期', 'Archive date'];
+const resourceKey = ['resource', '资源类型', 'Resource type'];
 
-const dataKeys = [
-  ['original', '原文件名', 'Original name'], ['extension', '扩展名', 'Extension'],
-  ['bytes', '文件大小字节', 'Size in bytes'], ['resource', '资源类型', 'Resource type'],
-  ['width', '图片宽度', 'Image width'], ['height', '图片高度', 'Image height'],
-  ['postId', '投稿 ID', 'Post ID'], ['postTitle', '投稿标题', 'Post title'],
-  ['authorName', '作者名', 'Creator name'], ['authorId', '作者 ID', 'Creator ID'],
-  ['year', '发布年', 'Publication year'], ['month', '发布月', 'Publication month'],
-  ['day', '发布日', 'Publication day'], ['publishedAt', '发布日期', 'Publication date'],
-  ['archivedAt', '归档日期', 'Archive date'], ['exportDate', '导出日期', 'Export date'],
-  ['exportTime', '导出时间', 'Export time'], ['postIndex', '投稿内序号', 'Post file number'],
-  ['imageIndex', '图片序号', 'Image number'], ['exportIndex', '导出序号', 'Export number'],
-];
+const aggregationKeys = {
+  creator: creatorKeys,
+  post: postKeys,
+  published: [...publicationKeys, ['yearMonth', '发布年月', 'Year and month'],
+    ['yearDay', '发布年日', 'Year and day'], ['monthDay', '发布月日', 'Month and day']],
+  archived: [archiveDateKey, ['archiveYear', '归档年', 'Archive year'], ['archiveMonth', '归档月', 'Archive month'],
+    ['archiveDay', '归档日', 'Archive day'], ['archiveYearMonth', '归档年月', 'Archive year and month'],
+    ['archiveYearDay', '归档年日', 'Archive year and day'], ['archiveMonthDay', '归档月日', 'Archive month and day']],
+  file: [resourceKey, ['extension', '文件扩展名', 'File extension']],
+};
+
+const dataKeys = {
+  file: [['original', '原文件名', 'Original name'], ['extension', '扩展名', 'Extension'],
+    ['bytes', '文件大小字节', 'Size in bytes'], resourceKey],
+  image: [['width', '图片宽度', 'Image width'], ['height', '图片高度', 'Image height']],
+  creator: creatorKeys,
+  post: postKeys,
+  published: publicationKeys,
+  archived: [archiveDateKey, ['exportDate', '导出日期', 'Export date'], ['exportTime', '导出时间', 'Export time']],
+  sequence: [['postIndex', '投稿内序号', 'Post file number'], ['imageIndex', '图片序号', 'Image number'],
+    ['exportIndex', '导出序号', 'Export number']],
+};
 
 const resourceLabels = {
   cover: { zh: '封面', en: 'Cover' }, image: { zh: '正文图片', en: 'Image' },
@@ -134,11 +139,16 @@ export function getExportKeys(authors, posts, authorIds, language) {
   const platformAuthors = singlePlatform ? authors.filter(({ platform }) => platform === selected[0].platform) : [];
   const platformPosts = getAuthorPosts(platformAuthors, posts, null);
   return Object.entries({ aggregation: aggregationKeys, data: dataKeys }).map(([category, keys]) => {
-    const builtIn = keys.map(([id, zh, en]) => ({ id: `${category}:${id}`, label: language === 'zh' ? zh : en }));
+    const builtIn = Object.entries(keys).flatMap(([group, fields]) => fields.map(([id, zh, en]) => ({
+      id: `${category}:${id}`, label: language === 'zh' ? zh : en, group, keywords: `${zh} ${en} ${id}`,
+    })));
     const custom = new Map();
     for (const { customKeys } of platformPosts) {
       for (const [id, entry] of Object.entries(customKeys?.[category] || {})) {
-        if (!custom.has(id)) custom.set(id, { id: `${customKeyPrefix}${category}:${id}`, label: customText(entry.label, language) || id });
+        if (!custom.has(id)) custom.set(id, {
+          id: `${customKeyPrefix}${category}:${id}`, label: customText(entry.label, language) || id,
+          group: 'custom', keywords: `${id} ${customText(entry.label, 'zh') ?? ''} ${customText(entry.label, 'en') ?? ''}`,
+        });
       }
     }
     return [...builtIn, ...custom.values()];

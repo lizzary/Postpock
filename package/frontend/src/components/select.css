@@ -1,0 +1,80 @@
+.select-control { min-width: 0; }
+
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .65rem;
+  text-align: start;
+}
+
+.select-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-trigger > svg { color: var(--muted); transition: rotate .16s ease; }
+.select-trigger:hover:not([data-popover-side]) { border-color: var(--accent); }
+.select-trigger[aria-expanded="true"] > svg { rotate: 180deg; }
+
+.select-trigger.select-trigger-compact {
+  min-height: 30px;
+  padding: 4px 6px;
+  background: transparent;
+  font-size: .84rem;
+}
+
+.select-trigger.select-trigger-compact:not([data-popover-side]) { border-color: transparent; }
+
+.select-popover {
+  display: flex;
+  flex-direction: column;
+  max-height: min(310px, var(--popover-available-height, 310px));
+  padding: 4px;
+}
+
+.select-options {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: var(--line) transparent;
+}
+
+.select-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .55rem;
+  min-height: 34px;
+  padding: .42rem .6rem;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: .87rem;
+  overflow-wrap: anywhere;
+}
+
+.select-option[aria-selected="true"] { color: var(--accent-ink); font-weight: 750; }
+.select-option:hover, .select-option[data-active="true"] {
+  color: var(--accent-ink);
+  background: color-mix(in srgb, var(--accent-soft) 78%, var(--paper));
+}
+.select-option > svg { color: var(--accent-ink); }
+
+.select-search {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  margin: 2px 2px 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper-raised);
+  color: var(--muted);
+}
+
+.select-search:focus-within { border-color: var(--accent); }
+.select-search input { width: 100%; min-width: 0; padding: 4px 0; background: transparent; border: 0; outline: none; font-size: .84rem; }
+.select-search input::placeholder { color: var(--muted); }
+.select-empty { padding: .55rem .6rem; color: var(--muted); font-size: .84rem; }

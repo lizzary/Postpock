@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, Icon, PlatformBadge } from '../components/UI.jsx';
+import { AuthorPicker } from '../components/AuthorPicker.jsx';
+import Popover from '../components/Popover.jsx';
+import { Dialog, Icon } from '../components/UI.jsx';
 import { local } from '../data/library.js';
 import {
   buildExportTree, cleanFilenameInput, getAuthorPosts, getDatePosts, getExportDraft,
@@ -9,9 +11,8 @@ import './export.css';
 
 const copy = {
   zh: {
-    eyebrow: '档案工作台', title: '导出馆藏', description: '挑选收藏，按自己的方式整理到一个文件夹。',
-    collection: '选择收藏', creators: '作者', allCreators: '所有作者', noCreators: '选择作者',
-    dates: '发布日期', allDates: '不限日期', day: '单日', range: '日期范围', today: '今天',
+    title: '导出馆藏', collection: '导出范围', creators: '作者', allCreators: '所有作者', noCreators: '选择作者',
+    dates: '发布日期', allDates: '不限日期', sameDay: '同一天', today: '今天',
     dateStart: '开始日期', dateEnd: '结束日期', dateError: '请选择有效的日期范围。',
     posts: '当日投稿', noPosts: '所选作者在当天没有投稿。',
     fileTypes: '文件类型', allTypes: '所有类型', noTypes: '选择类型', noExtension: '无扩展名',
@@ -19,10 +20,12 @@ const copy = {
     organize: '整理文件', destination: '导出路径', browse: '选择目录',
     directorySuggestions: '示例目录', pathPlaceholder: '输入导出目录',
     pickedDirectory: '浏览器已填入目录名称。也可手动输入完整路径。',
-    pattern: '文件名与相对路径', patternPlaceholder: '输入文字，或插入一个字段',
-    patternHint: '用 / 划分目录。字段会替换为对应的档案信息。',
-    aggregation: '聚合键', data: '数据键', removeKey: '移除字段',
-    previewEyebrow: '文件夹预览', preview: '整理后的馆藏', fileLimit: '每层文件数',
+    pattern: '文件名与相对路径', patternPlaceholder: '输入文字，或插入一个字段', insertField: '插入字段',
+    patternHint: '用 / 分隔文件夹。',
+    aggregation: '聚合键', data: '数据键', removeKey: '移除字段', searchKeys: '搜索字段', noKeys: '没有匹配的字段。',
+    keyGroups: { creator: '作者', post: '投稿', published: '发布时间', archived: '归档与导出时间', file: '文件',
+      image: '图片属性', sequence: '文件序号', custom: '平台字段' },
+    preview: '目录预览', fileLimit: '每层预览上限',
     root: '导出目录', emptyPreview: '这个范围内暂无可导出的文件。',
     adjustPreview: '修正文件名后即可预览。', shownMore: (count) => `… 另有 ${count} 个文件`,
     files: (count) => `${count} 个文件`, selected: (count) => `已选 ${count} 项`,
@@ -31,9 +34,8 @@ const copy = {
     cancel: '取消', submit: '生成导出计划', exported: (count) => `已生成 ${count} 个文件的导出计划`,
   },
   en: {
-    eyebrow: 'Archive studio', title: 'Export your collection', description: 'Choose what to keep and give it a folder structure of its own.',
-    collection: 'Choose the contents', creators: 'Creators', allCreators: 'All creators', noCreators: 'Choose creators',
-    dates: 'Publication date', allDates: 'All dates', day: 'One day', range: 'Date range', today: 'Today',
+    title: 'Export collection', collection: 'Export scope', creators: 'Creators', allCreators: 'All creators', noCreators: 'Choose creators',
+    dates: 'Publication date', allDates: 'All dates', sameDay: 'Same day', today: 'Today',
     dateStart: 'Start date', dateEnd: 'End date', dateError: 'Choose a valid date range.',
     posts: 'Posts on this day', noPosts: 'These creators have no posts on this day.',
     fileTypes: 'File types', allTypes: 'All types', noTypes: 'Choose file types', noExtension: 'No extension',
@@ -41,10 +43,12 @@ const copy = {
     organize: 'Arrange the files', destination: 'Destination', browse: 'Choose folder',
     directorySuggestions: 'Sample locations', pathPlaceholder: 'Enter an export folder',
     pickedDirectory: 'The browser filled in the folder name. You can also enter a full path.',
-    pattern: 'Filename and relative path', patternPlaceholder: 'Type a name or insert a field',
-    patternHint: 'Use / to create folders. Fields become names drawn from the archive.',
-    aggregation: 'Grouping fields', data: 'Data fields', removeKey: 'Remove field',
-    previewEyebrow: 'Folder preview', preview: 'Your arranged collection', fileLimit: 'Files per folder',
+    pattern: 'Filename and relative path', patternPlaceholder: 'Type a name or insert a field', insertField: 'Insert field',
+    patternHint: 'Use / to separate folders.',
+    aggregation: 'Grouping fields', data: 'Data fields', removeKey: 'Remove field', searchKeys: 'Search fields', noKeys: 'No matching fields.',
+    keyGroups: { creator: 'Creator', post: 'Post', published: 'Publication time', archived: 'Archive and export time', file: 'File',
+      image: 'Image properties', sequence: 'File sequence', custom: 'Platform fields' },
+    preview: 'Folder preview', fileLimit: 'Preview limit per folder',
     root: 'Export folder', emptyPreview: 'There are no files in this selection.',
     adjustPreview: 'Adjust the filename to see a preview.', shownMore: (count) => `… ${count} more files`,
     files: (count) => `${count} ${count === 1 ? 'file' : 'files'}`, selected: (count) => `${count} selected`,
@@ -61,14 +65,22 @@ function toggleSelection(selection, options, value) {
   return next.size === options.length && options.every((option) => next.has(option)) ? null : [...next];
 }
 
-function OptionPicker({ label, summary, children }) {
+function OptionPicker({ label, summary, minWidth, maxWidth, children }) {
+  const id = useId();
+  const anchor = useRef(null);
+  const [open, setOpen] = useState(false);
   return (
     <div className="export-field">
-      <span className="export-label">{label}</span>
-      <details className="export-picker">
-        <summary aria-label={`${label} · ${summary}`}><span>{summary}</span><Icon name="chevron-down" size={16} /></summary>
-        <div className="export-picker-panel">{children}</div>
-      </details>
+      <span className="export-label" id={`${id}-label`}>{label}</span>
+      <button type="button" ref={anchor} className="input export-picker" aria-labelledby={`${id}-label ${id}-summary`}
+        aria-expanded={open} aria-controls={id} onClick={() => setOpen((value) => !value)}>
+        <span id={`${id}-summary`}>{summary}</span><Icon name="chevron-down" size={16} />
+      </button>
+      <Popover open={open} anchorRef={anchor} onDismiss={(reason) => {
+        setOpen(false);
+        if (reason === 'escape') anchor.current.focus({ preventScroll: true });
+      }} className="export-picker-panel" id={id}
+        minWidth={minWidth} maxWidth={maxWidth}>{children}</Popover>
     </div>
   );
 }
@@ -83,25 +95,20 @@ function SelectionActions({ onAll, onNone, t }) {
 }
 
 function CreatorPicker({ authors, language, selection, onChange, t }) {
-  const ids = authors.map(({ id }) => id);
-  const chosen = authors.filter(({ id }) => selection?.includes(id));
-  const summary = selection === null ? t.allCreators : chosen.length === 0 ? t.noCreators
-    : chosen.length === 1 ? local(chosen[0].name, language) : t.selected(chosen.length);
+  const ids = useMemo(() => authors.map(({ id }) => id), [authors]);
+  const selectedIds = useMemo(() => {
+    if (selection === null) return ids;
+    const saved = new Set(selection);
+    return ids.filter((id) => saved.has(id));
+  }, [selection, ids]);
+  const count = selectedIds.length;
+  const summary = count === 0 ? t.noCreators : count === authors.length ? t.allCreators
+    : count === 1 ? local(authors.find(({ id }) => id === selectedIds[0]).name, language) : t.selected(count);
 
   return (
-    <OptionPicker label={t.creators} summary={summary}>
-      <SelectionActions onAll={() => onChange(null)} onNone={() => onChange([])} t={t} />
-      <div className="export-option-list">
-        {authors.map((author) => (
-          <label className="export-choice" key={author.id}>
-            <input type="checkbox" checked={selection === null || selection.includes(author.id)}
-              onChange={() => onChange(toggleSelection(selection, ids, author.id))} />
-            <img className="export-choice-avatar" src={author.avatar} alt="" />
-            <span>{local(author.name, language)}</span>
-            <PlatformBadge platform={author.platform} showName={false} />
-          </label>
-        ))}
-      </div>
+    <OptionPicker label={t.creators} summary={summary} minWidth={530} maxWidth={650}>
+      <AuthorPicker authors={authors} selectedIds={selectedIds} language={language}
+        onChange={(next) => onChange(next.length && next.length === ids.length ? null : next)} />
     </OptionPicker>
   );
 }
@@ -130,42 +137,62 @@ function ExtensionPicker({ extensions, selection, onChange, t }) {
 }
 
 function DateScope({ draft, datePosts, update, language, t }) {
-  const dateError = draft.dateMode === 'range' && (!draft.start || !draft.end || draft.start > draft.end);
+  const allDates = draft.dateMode === 'all';
+  const start = allDates ? '' : draft.start;
+  const end = allDates ? '' : draft.dateMode === 'day' ? start : draft.end;
+  const today = localDate();
+  const dateError = !allDates && (!start || !end || start > end);
+  const singleDay = !dateError && isSingleDay(draft);
   const postOptions = datePosts.map(({ id }) => id);
-  const selectedCount = draft.postIds === null ? datePosts.length : datePosts.filter(({ id }) => draft.postIds.includes(id)).length;
+  const selected = new Set(draft.postIds ?? postOptions);
+  const selectedCount = postOptions.filter((id) => selected.has(id)).length;
+  const errorId = useId();
+
+  function setDates(nextStart, nextEnd) {
+    if (nextStart === start && nextEnd === end) return;
+    update({ dateMode: nextStart || nextEnd ? 'range' : 'all', start: nextStart, end: nextEnd, postIds: null });
+  }
+
+  function setDay(day) {
+    setDates(day, day);
+  }
 
   return (
     <fieldset className="export-field export-date-scope">
       <legend className="export-label">{t.dates}</legend>
-      <div className="export-date-toolbar">
-        <div className="export-segments">
-          {[['all', t.allDates], ['day', t.day], ['range', t.range]].map(([mode, label]) => (
-            <button type="button" key={mode} aria-pressed={draft.dateMode === mode}
-              onClick={() => draft.dateMode !== mode && update({ dateMode: mode, postIds: null })}>{label}</button>
-          ))}
+      <div className="export-date-card">
+        <div className="export-date-inputs">
+          <label><span>{t.dateStart}</span>
+            <input className="input" type="date" value={start} aria-invalid={dateError}
+              aria-describedby={dateError ? errorId : undefined}
+              onChange={(event) => setDates(event.target.value, allDates ? event.target.value : end)} />
+          </label>
+          <Icon name="arrow-right" size={15} />
+          <label><span>{t.dateEnd}</span>
+            <input className="input" type="date" value={end} min={start || undefined} aria-invalid={dateError}
+              aria-describedby={dateError ? errorId : undefined}
+              onChange={(event) => setDates(allDates ? event.target.value : start, event.target.value)} />
+          </label>
         </div>
-        <button type="button" className="export-today" onClick={() => update({ dateMode: 'day', start: localDate(), postIds: null })}>
-          <Icon name="calendar" size={14} />{t.today}
-        </button>
+        <div className="export-date-toolbar">
+          <button type="button" aria-pressed={allDates} onClick={() => setDates('', '')}>{t.allDates}</button>
+          <button type="button" aria-pressed={singleDay && start !== today} onClick={() => setDay(start || end || today)}>{t.sameDay}</button>
+          <button type="button" aria-pressed={singleDay && start === today} onClick={() => setDay(today)}>
+            <Icon name="calendar" size={14} />{t.today}
+          </button>
+        </div>
       </div>
-      {draft.dateMode !== 'all' && <div className="export-date-inputs">
-        <input className="input" type="date" value={draft.start} aria-label={t.dateStart} aria-invalid={dateError}
-          onChange={(event) => update({ start: event.target.value, postIds: null })} />
-        {draft.dateMode === 'range' && <input className="input" type="date" value={draft.end} min={draft.start || undefined}
-          aria-label={t.dateEnd} aria-invalid={dateError} onChange={(event) => update({ end: event.target.value, postIds: null })} />}
-      </div>}
-      {dateError && <p className="export-error" role="alert">{t.dateError}</p>}
-      {isSingleDay(draft) && (
+      {dateError && <p className="export-error" role="alert" id={errorId}>{t.dateError}</p>}
+      {singleDay && (
         <div className="export-posts">
           <div className="export-post-list-header">
             <span>{t.posts} <small>{t.selected(selectedCount)}</small></span>
-            {datePosts.length > 0 && <SelectionActions onAll={() => update({ postIds: null })}
-              onNone={() => update({ postIds: [] })} t={t} />}
+            <SelectionActions onAll={() => update({ postIds: null })} onNone={() => update({ postIds: [] })} t={t} />
           </div>
           <div className="export-option-list">
             {datePosts.length ? datePosts.map((post) => (
               <label className="export-choice" key={post.id}>
-                <input type="checkbox" checked={draft.postIds === null || draft.postIds.includes(post.id)}
+                <input type="checkbox" checked={selected.has(post.id)}
                   onChange={() => update({ postIds: toggleSelection(draft.postIds, postOptions, post.id) })} />
                 <span>{local(post.title, language)}</span>
               </label>
@@ -179,14 +206,13 @@ function DateScope({ draft, datePosts, update, language, t }) {
 
 function Destination({ path, onChange, t }) {
   const id = useId();
+  const anchor = useRef(null);
+  const [open, setOpen] = useState(false);
   const [pickedDirectory, setPickedDirectory] = useState(false);
 
-  async function chooseDirectory(event) {
-    if (!window.showDirectoryPicker) return;
-    event.preventDefault();
-    const menu = event.currentTarget.parentElement;
-    if (menu.open) {
-      menu.open = false;
+  async function chooseDirectory() {
+    if (!window.showDirectoryPicker || open) {
+      setOpen(!open);
       return;
     }
     try {
@@ -194,7 +220,7 @@ function Destination({ path, onChange, t }) {
       onChange(folder.name);
       setPickedDirectory(true);
     } catch (error) {
-      if (error.name !== 'AbortError') menu.open = true;
+      if (error.name !== 'AbortError') setOpen(true);
     }
   }
 
@@ -209,20 +235,23 @@ function Destination({ path, onChange, t }) {
       <div className="export-destination">
         <input id={id} className="input" value={path} placeholder={t.pathPlaceholder} autoComplete="off"
           aria-describedby={pickedDirectory ? `${id}-help` : undefined} onChange={(event) => editPath(event.target.value)} />
-        <details className="export-directory-picker">
-          <summary className="icon-button" aria-label={t.browse} title={t.browse} onClick={chooseDirectory}>
-            <Icon name="folder" size={18} />
-          </summary>
-          <div className="export-picker-panel export-directory-options">
-            <span>{t.directorySuggestions}</span>
-            {['C:\\PostPock\\Exports', 'D:\\Archives\\PostPock'].map((suggestion) => (
-              <button type="button" key={suggestion} onClick={(event) => {
-                editPath(suggestion);
-                event.currentTarget.closest('details').open = false;
-              }}><Icon name="folder" size={15} />{suggestion}</button>
-            ))}
-          </div>
-        </details>
+        <button type="button" ref={anchor} className="icon-button" aria-label={t.browse} title={t.browse}
+          aria-expanded={open} aria-controls={`${id}-suggestions`} onClick={chooseDirectory}>
+          <Icon name="folder" size={18} />
+        </button>
+        <Popover open={open} anchorRef={anchor} onDismiss={(reason) => {
+          setOpen(false);
+          if (reason === 'escape') anchor.current.focus({ preventScroll: true });
+        }} className="export-picker-panel export-directory-options" id={`${id}-suggestions`} minWidth={240} align="end">
+          <span>{t.directorySuggestions}</span>
+          {['C:\\PostPock\\Exports', 'D:\\Archives\\PostPock'].map((suggestion) => (
+            <button type="button" key={suggestion} onClick={() => {
+              editPath(suggestion);
+              setOpen(false);
+              anchor.current.focus({ preventScroll: true });
+            }}><Icon name="folder" size={15} />{suggestion}</button>
+          ))}
+        </Popover>
       </div>
       {pickedDirectory && <p className="export-field-hint" id={`${id}-help`} role="status">{t.pickedDirectory}</p>}
     </div>
@@ -306,9 +335,53 @@ function adjacentToken(editor, range, before) {
   return neighbor instanceof HTMLElement && neighbor.classList.contains('export-token') ? neighbor : null;
 }
 
+function KeyPalette({ columns, insertKey, t }) {
+  const [search, setSearch] = useState('');
+  const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+  return (
+    <>
+      <label className="export-key-search">
+        <Icon name="search" size={16} />
+        <input type="search" aria-label={t.searchKeys} placeholder={t.searchKeys} value={search}
+          onChange={(event) => setSearch(event.target.value)} />
+      </label>
+      <div className="export-key-columns">
+        {columns.map((keys, index) => {
+          const title = index === 0 ? t.aggregation : t.data;
+          const groups = new Map();
+          for (const key of keys) {
+            const text = `${key.keywords} ${t.keyGroups[key.group]} ${title}`.toLowerCase();
+            if (!terms.every((term) => text.includes(term))) continue;
+            if (!groups.has(key.group)) groups.set(key.group, []);
+            groups.get(key.group).push(key);
+          }
+          return <section key={title} className="export-key-column" aria-label={title}>
+            <h4><Icon name={index === 0 ? 'layers' : 'file'} size={15} />{title}</h4>
+            <div className="export-key-options">
+              {[...groups].map(([group, fields]) => (
+                <div className="export-key-group" key={group}>
+                  <h5>{t.keyGroups[group]}</h5>
+                  <div className="export-key-tiles">
+                    {fields.map(({ id, label }) => (
+                      <button type="button" key={id} onPointerDown={(event) => event.preventDefault()}
+                        onClick={() => insertKey(id)}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {groups.size === 0 && <p className="export-panel-empty">{t.noKeys}</p>}
+            </div>
+          </section>;
+        })}
+      </div>
+    </>
+  );
+}
+
 function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
   const id = useId();
-  const wrapper = useRef(null);
+  const anchor = useRef(null);
   const editor = useRef(null);
   const initialPattern = useRef(pattern);
   const caret = useRef(null);
@@ -333,15 +406,6 @@ function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
     editor.current.querySelectorAll('.export-token').forEach((chip) => labelToken(chip, labels, t));
   }, [labels, t]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    function closeOutside(event) {
-      if (!wrapper.current.contains(event.target)) setOpen(false);
-    }
-    document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
-  }, [open]);
-
   function rememberCaret() {
     const range = selectionRange(editor.current);
     if (range) caret.current = range.cloneRange();
@@ -363,7 +427,7 @@ function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
     range.insertNode(node);
     range.setStartAfter(node);
     range.collapse(true);
-    editor.current.focus();
+    editor.current.focus({ preventScroll: true });
     selectRange(range);
     syncPattern();
   }
@@ -373,7 +437,7 @@ function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
     range.setStartBefore(chip);
     range.collapse(true);
     chip.remove();
-    editor.current.focus();
+    editor.current.focus({ preventScroll: true });
     selectRange(range);
     syncPattern();
   }
@@ -394,20 +458,13 @@ function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
   }
 
   return (
-    <div className="export-field export-editor" ref={wrapper} onKeyDown={(event) => {
-      if (event.key === 'Escape' && open) {
-        event.preventDefault();
-        event.stopPropagation();
-        editor.current.focus();
-        setOpen(false);
-      }
-    }}>
+    <div className="export-field">
       <span className="export-label" id={`${id}-label`}>{t.pattern}</span>
-      <div className="export-pattern-wrap">
+      <div className="export-pattern-wrap" ref={anchor}>
         <div ref={editor} className="input export-pattern" role="textbox" tabIndex={0} contentEditable
           suppressContentEditableWarning spellCheck={false} aria-labelledby={`${id}-label`}
           aria-describedby={`${id}-help`} aria-invalid={Boolean(error)} data-empty={pattern.length === 0}
-          data-placeholder={t.patternPlaceholder} onFocus={() => setOpen(true)} onPointerUp={rememberCaret}
+          data-placeholder={t.patternPlaceholder} onFocus={() => setOpen(true)} onPointerUp={rememberCaret} onBlur={rememberCaret}
           onKeyDown={onKeyDown} onKeyUp={rememberCaret} onInput={syncPattern} onDrop={(event) => event.preventDefault()}
           onClick={(event) => {
             setOpen(true);
@@ -421,23 +478,20 @@ function FilenameEditor({ pattern, columns, labels, onChange, error, t }) {
             const value = cleanFilenameInput(event.clipboardData.getData('text'));
             if (value) insert(document.createTextNode(value));
           }} />
-        <button type="button" className="icon-button export-open-keys" aria-label={`${t.aggregation} / ${t.data}`}
-          aria-expanded={open} aria-controls={`${id}-keys`} onPointerDown={(event) => event.preventDefault()}
-          onClick={() => setOpen((value) => !value)}><Icon name="plus" size={16} /></button>
+        <button type="button" className="export-open-keys" aria-label={t.insertField} aria-expanded={open}
+          aria-controls={`${id}-keys`} onPointerDown={(event) => event.preventDefault()} onClick={() => setOpen((value) => !value)}>
+          <Icon name="plus" size={15} /><span>{t.insertField}</span>
+        </button>
       </div>
-      {open && <div className="export-key-palette" id={`${id}-keys`}>
-        {columns.map((keys, index) => (
-          <section key={index} className="export-key-column">
-            <h4>{index === 0 ? t.aggregation : t.data}</h4>
-            <div className="export-key-options">
-              {keys.map(({ id: key, label }) => (
-                <button type="button" key={key} onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => insertKey(key)}>{label}</button>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>}
+      <Popover open={open} anchorRef={anchor} onDismiss={(reason) => {
+        if (reason === 'escape' && !anchor.current.contains(document.activeElement)) {
+          editor.current.focus({ preventScroll: true });
+          if (caret.current) selectRange(caret.current);
+        }
+        setOpen(false);
+      }} className="export-key-palette" id={`${id}-keys`} minWidth={590} maxWidth={700}>
+        <KeyPalette columns={columns} insertKey={insertKey} t={t} />
+      </Popover>
       <p id={`${id}-help`} className={error ? 'export-error' : 'export-field-hint'} role={error ? 'alert' : undefined}>
         {error ? t.errors[error] : t.patternHint}
       </p>
@@ -479,18 +533,16 @@ function FolderContents({ folder, level, firstBranch, limit, t }) {
   );
 }
 
-function ExportPreview({ preview, fileLimit, update, t }) {
+function ExportPreview({ preview, fileLimit, update, headingRef, t }) {
+  const id = useId();
   const { root, fileCount, error } = preview;
   const limit = Math.max(1, Math.floor(Number(fileLimit) || 5));
   return (
-    <aside className="export-preview" aria-label={t.preview}>
-      <div className="export-preview-top">
-        <span className="export-preview-kicker"><Icon name="layers" size={15} />{t.previewEyebrow}</span>
-        <h3>{t.preview}</h3>
-      </div>
+    <aside className="export-preview" aria-labelledby={id}>
+      <h3 id={id} ref={headingRef} tabIndex={-1}>{t.preview}</h3>
       <div className="export-preview-paper">
         <div className="export-tree-root">
-          <Icon name="folder" size={21} /><strong title={root.name}>{root.name || t.root}</strong>
+          <Icon name="folder" size={18} /><strong title={root.name}>{root.name || t.root}</strong>
         </div>
         <div className="export-tree-scroll">
           {fileCount ? <FolderContents folder={root} level={0} firstBranch limit={limit} t={t} /> : (
@@ -498,7 +550,6 @@ function ExportPreview({ preview, fileLimit, update, t }) {
           )}
         </div>
         <div className="export-preview-footer">
-          <span aria-live="polite">{t.files(fileCount)}</span>
           <label>{t.fileLimit}
             <input type="number" min="1" step="1" className="input" value={fileLimit}
               onChange={(event) => update({ fileLimit: event.target.value })}
@@ -512,6 +563,7 @@ function ExportPreview({ preview, fileLimit, update, t }) {
 
 export default function Export({ onClose, authorId, postId, authors, posts, language, notify, databasePath }) {
   const t = copy[language] ?? copy.en;
+  const previewHeading = useRef(null);
   const [draft, setDraft] = useState(() => getExportDraft(authorId, posts.find(({ id }) => id === postId), databasePath));
   const authorPosts = useMemo(() => getAuthorPosts(authors, posts, draft.authorIds), [authors, posts, draft.authorIds]);
   const typePosts = useMemo(() => authorId ? getAuthorPosts(authors, posts, [authorId]) : posts, [authors, posts, authorId]);
@@ -533,33 +585,45 @@ export default function Export({ onClose, authorId, postId, authors, posts, lang
   }
 
   return (
-    <Dialog title={t.title} eyebrow={t.eyebrow} description={t.description} onClose={onClose} className="export-dialog" wide>
+    <Dialog title={t.title} onClose={onClose} className="export-dialog" wide>
       <div className="export-layout">
         <div className="export-config">
           <section className="export-section" aria-label={t.collection}>
-            <h3 className="export-section-title"><span aria-hidden="true">01</span>{t.collection}</h3>
-            <CreatorPicker authors={authors} language={language} selection={draft.authorIds} t={t}
-              onChange={(authorIds) => update({ authorIds, postIds: null })} />
+            <h3>{t.collection}</h3>
+            <div className="export-scope-filters">
+              <CreatorPicker authors={authors} language={language} selection={draft.authorIds} t={t}
+                onChange={(authorIds) => update({ authorIds, postIds: null })} />
+              <ExtensionPicker extensions={extensions} selection={draft.extensions} t={t}
+                onChange={(value) => update({ extensions: value })} />
+            </div>
             <DateScope draft={draft} datePosts={datePosts} update={update} language={language} t={t} />
-            <ExtensionPicker extensions={extensions} selection={draft.extensions} t={t}
-              onChange={(value) => update({ extensions: value })} />
           </section>
           <section className="export-section" aria-label={t.organize}>
-            <h3 className="export-section-title"><span aria-hidden="true">02</span>{t.organize}</h3>
+            <h3>{t.organize}</h3>
             <Destination path={draft.path} onChange={(path) => update({ path })} t={t} />
             <FilenameEditor pattern={draft.pattern} columns={columns} labels={labels} error={preview.error}
               onChange={(pattern) => update({ pattern })} t={t} />
           </section>
         </div>
-        <ExportPreview preview={preview} fileLimit={draft.fileLimit} update={update} t={t} />
+        <ExportPreview preview={preview} fileLimit={draft.fileLimit} update={update} headingRef={previewHeading} t={t} />
       </div>
       <footer className="export-actions">
-        <button type="button" className="button button-quiet" onClick={onClose}>{t.cancel}</button>
-        <button type="button" className="button button-primary" disabled={!draft.path.trim() || !preview.fileCount || Boolean(preview.error)}
-          onClick={() => {
-            notify(t.exported(preview.fileCount));
-            onClose();
-          }}><Icon name="download" size={17} />{t.submit}</button>
+        <div className="export-summary">
+          <span className="export-file-count" role="status"><Icon name="file" size={16} />{t.files(preview.fileCount)}</span>
+          <button type="button" className="export-preview-link" onClick={() => {
+            const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+            previewHeading.current.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'instant' : 'smooth' });
+            previewHeading.current.focus({ preventScroll: true });
+          }}>{t.preview}<Icon name="arrow-right" size={14} /></button>
+        </div>
+        <div className="export-action-buttons">
+          <button type="button" className="button button-quiet" onClick={onClose}>{t.cancel}</button>
+          <button type="button" className="button button-primary" disabled={!draft.path.trim() || !preview.fileCount || Boolean(preview.error)}
+            onClick={() => {
+              notify(t.exported(preview.fileCount));
+              onClose();
+            }}><Icon name="download" size={17} />{t.submit}</button>
+        </div>
       </footer>
     </Dialog>
   );

@@ -178,6 +178,35 @@ export function acknowledgeArchive(path, posts) {
   if (library.archivePosts === posts) publish(withLibrary(snapshot, path, { ...library, archivePosts: [] }))
 }
 
+export function removeLibraryRecords(path, { authorId, postId }) {
+  const library = getLibraryOperations(snapshot, path)
+  const keep = (post) => authorId ? post.authorId !== authorId : post.id !== postId
+  const keepRow = ({ post }) => keep(post)
+  const pending = library.archivePosts.filter(keep)
+  const rows = library.checkpoint?.rows.filter(keepRow)
+  let tasksChanged = false
+  const tasks = snapshot.tasks.flatMap((task) => {
+    if (task.path !== path || task.status === 'completed') return [task]
+    const remaining = task.rows.filter(keepRow)
+    if (remaining.length === task.rows.length) return [task]
+    tasksChanged = true
+    return remaining.length ? [{
+      ...task,
+      rows: remaining,
+      total: remaining.length,
+      completed: Math.min(task.completed, remaining.length),
+    }] : []
+  })
+  const checkpointChanged = rows && rows.length !== library.checkpoint.rows.length
+  const pendingChanged = pending.length !== library.archivePosts.length
+  if (tasksChanged || checkpointChanged || pendingChanged) {
+    publish(withLibrary({ ...snapshot, tasks }, path, {
+      checkpoint: checkpointChanged ? { ...library.checkpoint, rows } : library.checkpoint,
+      archivePosts: pendingChanged ? pending : library.archivePosts,
+    }))
+  }
+}
+
 function localDate(timestamp) {
   const date = new Date(timestamp)
   const pad = (value) => String(value).padStart(2, '0')

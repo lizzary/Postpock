@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { AuthorPicker } from '../components/AuthorPicker.jsx'
 import { Dialog, Icon, PlatformBadge } from '../components/UI.jsx'
 import { formatDate, local, platforms as platformCatalog } from '../data/library.js'
 import {
@@ -247,7 +248,19 @@ const PAGE_SIZE = 7
 function SelectVisible({ checked, mixed, onChange, label, disabled }) {
   const input = useRef(null)
   useEffect(() => { input.current.indeterminate = mixed }, [mixed])
-  return <input ref={input} type="checkbox" checked={checked} onChange={onChange} aria-label={label} disabled={disabled} />
+  return <input ref={input} type="checkbox" className="archive-check" checked={checked} onChange={onChange} aria-label={label} disabled={disabled} />
+}
+
+function LedgerIllustration() {
+  return <svg className="op-ledger-illustration" viewBox="0 0 238 132" fill="none" aria-hidden="true">
+    <path className="op-ledger-guides" d="M13 105h212M30 116h179M22 30h34m131 0h30" />
+    <path className="op-ledger-sheet-back" d="M73 26h91v76H73z" transform="rotate(-12 118 64)" />
+    <path className="op-ledger-sheet" d="M84 15h68l21 21v76H84z" />
+    <path className="op-ledger-rule" d="M152 15v21h21M111 58h41m-41 17h30m-30 17h35" />
+    <path className="op-ledger-marks" d="m97 57 2 2 4-5m-6 20 2 2 4-5m-6 20 2 2 4-5" />
+    <path className="op-ledger-rule" d="M49 57v10m-5-5h10m140 16v14m-7-7h14" />
+    <circle className="op-ledger-pin" cx="204" cy="43" r="2.5" />
+  </svg>
 }
 
 function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, onClose, notify, libraryReady = true }) {
@@ -265,8 +278,9 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
   const [selected, setSelected] = useState(new Set())
   const authorsById = useMemo(() => new Map(authors.map((author) => [author.id, author])), [authors])
   const activeStates = useMemo(() => activePostStates(tasks, databasePath), [tasks, databasePath])
-  const availableAuthors = authors.filter(({ platform }) => platforms.includes(platform))
-  const chosenAuthors = availableAuthors.filter(({ id }) => authorIds.includes(id))
+  const availableAuthors = useMemo(() => authors.filter(({ platform }) => platforms.includes(platform)), [authors, platforms])
+  const selectedAuthorIds = new Set(authorIds)
+  const chosenAuthors = availableAuthors.filter(({ id }) => selectedAuthorIds.has(id))
   const blocked = chosenAuthors.some(({ platform }) => connections[platform] !== 'connected')
   const checking = tasks.find((task) => task.type === 'check' && task.status !== 'completed' && task.path === databasePath)
   const rows = checkpoint?.rows ?? []
@@ -327,11 +341,11 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
   }
 
   return (
-    <Dialog title={t('同步归档', 'Archive sync')} eyebrow={t('归档工具', 'Archive tools')} onClose={onClose} wide className="op-dialog op-dialog-sync">
+    <Dialog title={t('同步归档', 'Archive sync')} onClose={onClose} wide className="op-dialog op-dialog-sync">
       <div className="op-sync-layout">
         <aside className="op-scope" aria-label={t('检查范围', 'Check scope')}>
           <div className="op-scope-header">
-            <Icon name="layers" size={19} /><h3>{t('检查范围', 'Check scope')}</h3>
+            <h3>{t('检查范围', 'Check scope')}</h3>
             <button
               className="icon-button op-scope-toggle"
               type="button"
@@ -344,41 +358,36 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
           <div id="sync-scope-fields" className="op-scope-content" data-collapsed={!scopeExpanded}>
             <div className="op-scope-fields">
               <fieldset>
-                <legend>{t('平台', 'Platforms')}</legend>
-                {platformIds.map((platform) => (
-                  <label key={platform} className="op-choice">
-                    <input type="checkbox" checked={platforms.includes(platform)} onChange={() => togglePlatform(platform)} />
-                    <PlatformBadge platform={platform} />
-                    <span className={`op-scope-dot op-status-${connections[platform]}`} role="img" title={t(...labels[connections[platform]])} aria-label={t(...labels[connections[platform]])} />
-                  </label>
-                ))}
+                <legend><span className="op-scope-step" aria-hidden="true">01</span>{t('选择平台', 'Choose platforms')}</legend>
+                <div className="op-platform-choices">
+                  {platformIds.map((platform) => (
+                    <label key={platform} className="op-choice">
+                      <input type="checkbox" className="archive-check" checked={platforms.includes(platform)} onChange={() => togglePlatform(platform)} />
+                      <PlatformBadge platform={platform} />
+                      <span className={`op-scope-dot op-status-${connections[platform]}`} role="img" title={t(...labels[connections[platform]])} aria-label={t(...labels[connections[platform]])} />
+                    </label>
+                  ))}
+                </div>
               </fieldset>
               <fieldset>
-                <legend>{t('作者', 'Creators')}</legend>
-                {availableAuthors.length ? (
-                  <div className="op-creator-choices">
-                    {availableAuthors.map((author) => (
-                      <label key={author.id} className="op-choice">
-                        <input
-                          type="checkbox"
-                          checked={authorIds.includes(author.id)}
-                          onChange={(event) => {
-                            const checked = event.target.checked
-                            setAuthorIds((values) => checked ? [...values, author.id] : values.filter((id) => id !== author.id))
-                          }}
-                        />
-                        <span>{local(author.name, language)}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : <p className="op-scope-help">{t('所选平台下暂无作者。', 'No creators in the selected platforms.')}</p>}
+                <legend><span className="op-scope-step" aria-hidden="true">02</span>{t('选择作者', 'Choose creators')}</legend>
+                <AuthorPicker authors={availableAuthors} selectedIds={authorIds} onChange={setAuthorIds} language={language} filterPlatforms={false} />
               </fieldset>
             </div>
-            {blocked && <button type="button" className="button button-quiet op-connect-hint" onClick={() => onOpen('connections')}><Icon name="alert" size={17} />{t('请先连接所选平台', 'Connect the selected platforms')}</button>}
-            <button type="button" className="button button-primary op-check-button" disabled={!libraryReady || !chosenAuthors.length || blocked || !!checking} onClick={check}>
-              <Icon name={checking ? 'loader' : 'sync'} className={checking ? 'op-spin' : undefined} size={17} />
-              {checking ? t('检查任务已提交', 'Check submitted') : t('检查同步状态', 'Check archive status')}
-            </button>
+            <div className="op-scope-footer">
+              {blocked ? (
+                <button type="button" className="button button-soft op-check-button" onClick={() => onOpen('connections')}>
+                  <Icon name="link" size={17} />{t('连接所选平台', 'Connect selected platforms')}
+                  <Icon name="arrow-right" size={16} />
+                </button>
+              ) : (
+                <button type="button" className="button button-primary op-check-button" disabled={!libraryReady || !chosenAuthors.length || !!checking} onClick={check}>
+                  <Icon name={checking ? 'loader' : 'sync'} className={checking ? 'op-spin' : undefined} size={17} />
+                  {checking ? t('检查任务已提交', 'Check submitted') : t('检查同步状态', 'Check archive status')}
+                  <Icon name="arrow-right" size={16} />
+                </button>
+              )}
+            </div>
           </div>
         </aside>
         <section className="op-ledger" aria-label={t('投稿清单', 'Post ledger')}>
@@ -387,7 +396,7 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
               <h3>{t('投稿清单', 'Post ledger')}</h3>
               {rows.length > 0 && <p>{t('上次检查', 'Last checked')} · {formattedTime(checkpoint.checkedAt, language)}</p>}
             </div>
-            <button type="button" className="button button-quiet" onClick={() => onOpen('tasks')}><Icon name="activity" size={17} />{t('任务记录', 'Activity')}</button>
+            <button type="button" className="button button-quiet op-ledger-activity" onClick={() => onOpen('tasks')}><Icon name="activity" size={17} />{t('任务记录', 'Activity')}</button>
           </div>
           {checking?.status === 'running' && <div className="op-ledger-progress"><TaskProgress task={checking} language={language} /></div>}
           {rows.length ? (
@@ -422,7 +431,7 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
                       const title = local(post.title, language)
                       return (
                         <tr key={post.id} className={selected.has(post.id) && enabled ? 'op-row-selected' : ''}>
-                          <td><input type="checkbox" disabled={!enabled} checked={selected.has(post.id) && enabled} aria-label={t(`选择 ${title}`, `Select ${title}`)} onChange={(event) => toggleIds([post.id], event.target.checked)} /></td>
+                          <td><input type="checkbox" className="archive-check" disabled={!enabled} checked={selected.has(post.id) && enabled} aria-label={t(`选择 ${title}`, `Select ${title}`)} onChange={(event) => toggleIds([post.id], event.target.checked)} /></td>
                           <td><div className="op-ledger-title"><strong>{title}</strong><span>{local(authorsById.get(rowAuthor)?.name, language)}</span></div></td>
                           <td className="op-ledger-date">{formatDate(post.publishedAt, language)}</td>
                           <td><Status status={activeStates.get(post.id) ?? status} language={language} /></td>
@@ -453,10 +462,12 @@ function Sync({ language, authors, authorId, posts, settings, snapshot, onOpen, 
               </div>
             </>
           ) : (
-            <div className="op-empty op-ledger-empty">
-              <div className="op-empty-emblem"><Icon name="archive" size={34} /></div>
-              <strong>{t('清单等待第一次检查', 'Your ledger is ready for its first check')}</strong>
-              <p>{t('选择平台与作者，查看已归档的投稿与待同步的内容。', 'Choose platforms and creators to see what you have archived and what is ready to save.')}</p>
+            <div className="op-empty op-ledger-empty" role="status">
+              <LedgerIllustration />
+              <strong>{checking ? t('正在准备清单', 'Preparing the ledger') : t('这里会显示投稿的同步状态', 'Post status will appear here')}</strong>
+              <p>{checking
+                ? t('检查完成后，投稿会列在这里。', 'Posts will appear once the check is complete.')
+                : t('选好平台和作者后，点击「检查同步状态」。', 'Choose platforms and creators, then check their archive status.')}</p>
             </div>
           )}
         </section>

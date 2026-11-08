@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import Select from './components/Select.jsx'
 import { Dialog, Icon, PlatformBadge } from './components/UI.jsx'
 import { asset, libraryApi, local, platforms, searchPosts, useLibrary } from './data/library.js'
 import { AuthorEditor, PostEditor } from './features/Editors.jsx'
 import Export from './features/Export.jsx'
-import { AuthorPage, Home, PostPage, postHref } from './features/LibraryPages.jsx'
+import { AuthorPage, Home, PostPage, authorHref, postHref } from './features/LibraryPages.jsx'
 import { Operations, useOperations } from './features/Operations.jsx'
 import './styles.css'
+import './features/delete.css'
 
 function readRoute() {
   const match = location.hash.match(/^#\/(creator|post)\/([^/]+)$/)
@@ -81,6 +83,16 @@ function App() {
     saved.then((ok) => notify(ok ? (en ? 'Post saved.' : '文章已保存。') : (en ? 'Post saved for this session only.' : '文章仅保留在当前会话。')))
   }
 
+  function deleteRecord() {
+    const deletingAuthor = view === 'deleteAuthor'
+    const saved = deletingAuthor ? libraryApi.deleteAuthor(author.id) : libraryApi.deletePost(post.id)
+    close()
+    location.hash = deletingAuthor ? '/' : authorHref(author.id).slice(1)
+    saved.then((ok) => notify(ok
+      ? (deletingAuthor ? (en ? 'Creator deleted.' : '已删除作者。') : (en ? 'Post deleted.' : '已删除文章。'))
+      : (en ? 'Deletion applies to this session only.' : '删除仅在当前会话生效。')))
+  }
+
   return <>
     <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.querySelector('main').focus() }}>{en ? 'Skip to content' : '跳到正文'}</a>
     <Header language={language} open={setView} home={route.page === 'home'} />
@@ -98,8 +110,29 @@ function App() {
     {view === 'search' && <Search language={language} authors={authors} posts={posts} authorId={author?.id} onClose={close} />}
     {(view === 'newAuthor' || (view === 'editAuthor' && author)) && <AuthorEditor author={view === 'editAuthor' ? author : null} language={language} onClose={close} onSave={saveAuthor} />}
     {author && (view === 'newPost' || (view === 'editPost' && post)) && <PostEditor post={view === 'editPost' ? post : null} author={author} authors={authors} posts={posts} language={language} onClose={close} onSave={savePost} />}
+    {((view === 'deleteAuthor' && author) || (view === 'deletePost' && post)) &&
+      <DeleteDialog author={author} post={view === 'deletePost' ? post : null} posts={posts}
+        language={language} onClose={close} onConfirm={deleteRecord} />}
     <div className="toast-region" role="status">{toast && <div className="toast"><Icon name="info" size={20} /><span>{toast.message}</span><button className="icon-button" type="button" aria-label={en ? 'Dismiss' : '关闭提示'} onClick={() => setToast(null)}><Icon name="x" size={16} /></button></div>}</div>
   </>
+}
+
+function DeleteDialog({ author, post, posts, language, onClose, onConfirm }) {
+  const en = language === 'en'
+  const title = post ? (en ? 'Delete post?' : '删除这篇文章？') : (en ? 'Delete creator?' : '删除这位作者？')
+  const action = post ? (en ? 'Delete post' : '删除文章') : (en ? 'Delete creator' : '删除作者')
+  const name = local(post?.title ?? author.name, language)
+  const count = post ? 0 : posts.filter((entry) => entry.authorId === author.id).length
+  const description = count
+    ? (en ? `“${name}” and their ${count} archived ${count === 1 ? 'post' : 'posts'} will be permanently removed from this library.` : `「${name}」及其 ${count} 篇已归档文章将从当前收藏馆永久删除。`)
+    : (en ? `“${name}” will be permanently removed from this library.` : `「${name}」将从当前收藏馆永久删除。`)
+
+  return <Dialog title={title} description={description} className="delete-dialog" onClose={onClose}>
+    <div className="dialog-actions">
+      <button type="button" className="button button-quiet" data-initial-focus onClick={onClose}>{en ? 'Cancel' : '取消'}</button>
+      <button type="button" className="button button-danger button-danger-solid" onClick={onConfirm}><Icon name="trash" size={16} />{action}</button>
+    </div>
+  </Dialog>
 }
 
 function Header({ language, open, home }) {
@@ -147,9 +180,8 @@ function Search({ authors, posts, authorId, language, onClose }) {
           <button type="button" className="filter-tab" aria-pressed={fields.includes(id)} key={id} onClick={() => setFields((current) => toggle(current, id))}>{label}</button>)}
         {platforms.map(({ id }) => <button type="button" className="filter-tab" aria-pressed={platformIds.includes(id)} key={id} onClick={() => setPlatformIds((current) => toggle(current, id))}><PlatformBadge platform={id} /></button>)}
       </div>
-      <label className="field"><span>{en ? 'Creator filter' : '指定作者'}</span><select className="input" value={creator} onChange={(event) => setCreator(event.target.value)}>
-        <option value="">{en ? 'All creators' : '全部作者'}</option>{authors.map((author) => <option key={author.id} value={author.id}>{authorNames.get(author.id)}</option>)}
-      </select></label>
+      <Select showLabel searchable label={en ? 'Creator filter' : '指定作者'} value={creator} onChange={setCreator} language={language}
+        options={[{ value: '', label: en ? 'All creators' : '全部作者' }, ...authors.map(({ id }) => ({ value: id, label: authorNames.get(id) }))]} />
       {query.trim() && <div className="search-results" aria-live="polite">
         <div className="search-result-count">{en ? `${results.length} results` : `${results.length} 条结果`}</div>
         {results.map((post) => <a key={post.id} href={postHref(post.id)} onClick={onClose}>

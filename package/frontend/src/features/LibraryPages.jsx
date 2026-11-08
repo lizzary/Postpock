@@ -1,40 +1,37 @@
 import { useRef, useState } from 'react'
+import Select from '../components/Select.jsx'
 import { Icon, PlatformBadge } from '../components/UI.jsx'
-import { asset, formatDate, libraryApi, local, platforms } from '../data/library.js'
+import { formatDate, libraryApi, local, platforms } from '../data/library.js'
+import ArchiveSketch from './ArchiveSketch.jsx'
 import { ConnectionStatus, useOperations } from './Operations.jsx'
 import { webUrl } from './Editors.jsx'
 
-const authorHref = (id) => `#/creator/${encodeURIComponent(id)}`
+export const authorHref = (id) => `#/creator/${encodeURIComponent(id)}`
 export const postHref = (id) => `#/post/${encodeURIComponent(id)}`
 
 export function Home({ authors, posts, language, open }) {
   const en = language === 'en'
   const [platformFilter, setPlatformFilter] = useState('all')
   const groups = platforms.filter(({ id }) => platformFilter === 'all' || platformFilter === id)
-  const featured = posts.find((post) => post.id === 'mio-1')
 
   return <>
     <section className="home-hero" aria-labelledby="home-title">
-      <img className="hero-art" src={asset('art/moon-coast.svg')} alt="" fetchPriority="high" />
-      <div className="hero-wash" />
-      <div className="hero-copy">
-        <div className="hero-kicker"><span />{en ? 'THE PRIVATE ARCHIVE' : '私人收藏档案'}</div>
-        <h1 id="home-title">{en ? <>Keep what<br /><em>moves you.</em></> : <>把喜欢的，<br /><em>留在这里。</em></>}</h1>
-        <p>{en ? 'A little room for the art, stories, and creators you want to keep close.' : '把喜欢的创作者、插画和故事，安放在一间属于自己的收藏馆。'}</p>
-        <a href="#collection" className="hero-button" onClick={(event) => {
-          event.preventDefault()
-          document.getElementById('collection').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
-        }}>{en ? 'Browse the collection' : '浏览收藏'}<Icon name="arrow-right" size={17} /></a>
+      <div className="shell home-hero-inner">
+        <ArchiveSketch />
+        <div className="hero-copy">
+          <h1 id="home-title">{en ? 'Hey, welcome back.' : '回来啦。'}</h1>
+          <p>{en ? 'What are we looking at today?' : '今天想看点什么？'}</p>
+          <a href="#collection" className="hero-button" onClick={(event) => {
+            event.preventDefault()
+            const collection = document.getElementById('collection')
+            collection.focus({ preventScroll: true })
+            collection.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+          }}>{en ? 'Browse the collection' : '翻翻收藏'}<Icon name="chevron-down" size={17} /></a>
+        </div>
       </div>
-      {featured && <a href={postHref(featured.id)} className="hero-credit">
-        <Icon name="spark" size={21} />
-        <span><small>{en ? 'FROM THE COLLECTION' : '馆藏选页'}</small><strong>{en ? 'Moonlit shore' : '月照海岸'}</strong></span>
-        <Icon name="arrow-up-right" size={17} />
-      </a>}
-      <div className="hero-coordinate" aria-hidden="true">POSTPOCK / VOL. 01</div>
     </section>
 
-    <section className="collection" id="collection" aria-labelledby="collection-title">
+    <section className="shell collection" id="collection" tabIndex={-1} aria-labelledby="collection-title">
       <div className="collection-heading">
         <div>
           <div className="eyebrow collection-index"><span>01</span>{en ? 'THE COLLECTION' : '馆藏目录'}</div>
@@ -47,6 +44,7 @@ export function Home({ authors, posts, language, open }) {
         <button type="button" className="filter-tab" aria-pressed={platformFilter === 'all'} onClick={() => setPlatformFilter('all')}><Icon name="grid" size={15} />{en ? 'All platforms' : '全部平台'}</button>
         {platforms.map(({ id }) => <button type="button" key={id} className="filter-tab" aria-pressed={platformFilter === id} onClick={() => setPlatformFilter(id)}><PlatformBadge platform={id} /></button>)}
       </div>
+      {!authors.length && platformFilter === 'all' && <p className="empty-note">{en ? 'Your collection is empty.' : '收藏馆还是空的。'}</p>}
       {groups.map(({ id }) => {
         const creators = authors.filter((author) => author.platform === id)
         if (!creators.length) return platformFilter !== 'all' && <p className="empty-note" key={id}>{en ? 'This shelf is still empty.' : '这层书架还空着。'}</p>
@@ -110,23 +108,31 @@ export function AuthorPage({ author, posts, databasePath, language, open }) {
   }
 
   return <>
-    <nav className="breadcrumbs" aria-label={en ? 'Breadcrumb' : '页面路径'}><a href="#/"><Icon name="arrow-left" size={16} />{en ? 'Collection' : '收藏馆'}</a><Icon name="chevron-right" size={13} /><span aria-current="page">{local(author.name, language)}</span></nav>
-    <section className="author-hero">
-      <div className={`author-cover pattern-${author.pattern || 'lattice'}`}>{author.cover && <img src={author.cover} alt="" fetchPriority="high" />}</div>
-      <div className="author-profile">
+    <section className="author-hero" aria-labelledby="author-title">
+      <div className={`author-cover ${author.cover ? 'has-cover' : `pattern-${author.pattern || 'lattice'}`}`}>
+        {author.cover && <>
+          <img className="author-cover-backdrop" src={author.cover} alt="" aria-hidden="true" />
+          <img className="author-cover-image" src={author.cover} alt="" fetchPriority="high" />
+        </>}
+      </div>
+      <div className="shell author-profile">
         <img className="profile-avatar" src={author.avatar} alt="" />
         <div className="profile-main">
           <div className="profile-kicker">
             <a href={webUrl(author.url) || platforms.find(({ id }) => id === author.platform)?.url} target="_blank" rel="noreferrer"><PlatformBadge platform={author.platform} /><Icon name="arrow-up-right" size={14} /></a>
             <button className="status-trigger" type="button" onClick={() => open('connections')}><ConnectionStatus platform={author.platform} language={language} /></button>
           </div>
-          <h1>{local(author.name, language)}</h1>
+          <h1 id="author-title">{local(author.name, language)}</h1>
           {local(author.description, language) && <p>{local(author.description, language)}</p>}
         </div>
-        <button type="button" className="button button-soft profile-edit" onClick={() => open('editAuthor')}><Icon name="edit" size={17} />{en ? 'Edit creator' : '编辑作者'}</button>
+        <div className="profile-actions">
+          <button type="button" className="button button-soft" onClick={() => open('editAuthor')}><Icon name="edit" size={17} />{en ? 'Edit creator' : '编辑作者'}</button>
+          <button type="button" className="button button-quiet button-danger" onClick={() => open('deleteAuthor')}><Icon name="trash" size={17} />{en ? 'Delete creator' : '删除作者'}</button>
+        </div>
       </div>
     </section>
-    <section className="author-library" aria-labelledby="author-library-title" ref={archive}>
+    <section className="shell author-library" aria-labelledby="author-library-title" ref={archive}>
+      <nav className="breadcrumbs" aria-label={en ? 'Breadcrumb' : '页面路径'}><a href="#/"><Icon name="arrow-left" size={16} />{en ? 'Collection' : '收藏馆'}</a><Icon name="chevron-right" size={13} /><span aria-current="page">{local(author.name, language)}</span></nav>
       <div className="collection-heading">
         <div><div className="eyebrow collection-index"><span>02</span>{en ? 'CREATOR ARCHIVE' : '作者档案'}</div>
           <h2 id="author-library-title">{en ? 'Archived posts' : '馆藏文章'}</h2>
@@ -134,9 +140,14 @@ export function AuthorPage({ author, posts, databasePath, language, open }) {
         <button className="button button-primary" type="button" onClick={() => open('newPost')}><Icon name="plus" size={18} />{en ? 'Add post' : '添加文章'}</button>
       </div>
       <div className="post-tools">
-        <label className="sort-control"><Icon name="filter" size={16} /><select aria-label={en ? 'Sort posts' : '文章排序'} value={preferences.sort} onChange={(event) => changePreference({ sort: event.target.value })}>
-          <option value="newest">{en ? 'Newest first' : '最近发布'}</option><option value="oldest">{en ? 'Oldest first' : '最早发布'}</option><option value="title">{en ? 'By title' : '按标题'}</option>
-        </select></label>
+        <div className="sort-control">
+          <Icon name="filter" size={16} />
+          <Select label={en ? 'Sort posts' : '文章排序'} language={language} value={preferences.sort} onChange={(sort) => changePreference({ sort })} compact options={[
+            { value: 'newest', label: en ? 'Newest first' : '最近发布' },
+            { value: 'oldest', label: en ? 'Oldest first' : '最早发布' },
+            { value: 'title', label: en ? 'By title' : '按标题' },
+          ]} />
+        </div>
         <div className="layout-switch">
           <button type="button" className="icon-button" aria-label={en ? 'Two columns' : '双列'} aria-pressed={preferences.layout === 'double'} onClick={() => changePreference({ layout: 'double' })}><Icon name="grid" size={17} /></button>
           <button type="button" className="icon-button" aria-label={en ? 'One column' : '单列'} aria-pressed={preferences.layout === 'single'} onClick={() => changePreference({ layout: 'single' })}><Icon name="list" size={19} /></button>
@@ -194,6 +205,7 @@ export function PostPage({ post, author, posts, language, open }) {
         <div className="reader-actions">
           <button className="button button-soft" type="button" onClick={() => open('editPost')}><Icon name="edit" size={17} />{en ? 'Edit post' : '编辑文章'}</button>
           <button className="button button-quiet" type="button" onClick={() => open('export')}><Icon name="export" size={17} />{en ? 'Export post' : '导出文章'}</button>
+          <button className="button button-quiet button-danger" type="button" onClick={() => open('deletePost')}><Icon name="trash" size={17} />{en ? 'Delete post' : '删除文章'}</button>
         </div>
       </header>
       <div className="reader-cover"><img src={post.cover} alt={title} fetchPriority="high" /></div>

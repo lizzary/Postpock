@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { removeLibraryRecords } from './operations.js'
 
 export const platforms = [
   { id: 'fanbox', name: 'Fanbox', url: 'https://www.fanbox.cc/' },
@@ -148,10 +149,14 @@ async function persist(patch) {
   const db = await database
   if (!db) return false
   return new Promise((resolve) => {
-    const transaction = db.transaction('libraries', 'readwrite')
-    transaction.objectStore('libraries').put(snapshot, databasePath)
-    transaction.oncomplete = () => resolve(true)
-    transaction.onabort = transaction.onerror = () => resolve(false)
+    try {
+      const transaction = db.transaction('libraries', 'readwrite')
+      transaction.objectStore('libraries').put(snapshot, databasePath)
+      transaction.oncomplete = () => resolve(true)
+      transaction.onabort = transaction.onerror = () => resolve(false)
+    } catch {
+      resolve(false)
+    }
   })
 }
 
@@ -164,7 +169,8 @@ function upsert(current, incoming) {
 export const libraryApi = {
   saveAuthor(author) {
     const fallback = geometry[Math.floor(Math.random() * geometry.length)]
-    const record = { ...author, id: author.id || newId(), pattern: author.pattern || fallback }
+    const avatar = author.avatar || authors[Math.floor(Math.random() * authors.length)].avatar
+    const record = { ...author, id: author.id || newId(), avatar, pattern: author.pattern || fallback }
     return { record, saved: persist({ authors: upsert(library.authors, [record]) }) }
   },
   savePost(post) {
@@ -173,6 +179,19 @@ export const libraryApi = {
   },
   archivePosts(records) {
     return persist({ posts: upsert(library.posts, records) })
+  },
+  deleteAuthor(authorId) {
+    const saved = persist({
+      authors: library.authors.filter(({ id }) => id !== authorId),
+      posts: library.posts.filter((post) => post.authorId !== authorId),
+    })
+    removeLibraryRecords(library.settings.databasePath, { authorId })
+    return saved
+  },
+  deletePost(postId) {
+    const saved = persist({ posts: library.posts.filter(({ id }) => id !== postId) })
+    removeLibraryRecords(library.settings.databasePath, { postId })
+    return saved
   },
   setSettings(patch) {
     const settings = { ...library.settings, ...patch }
