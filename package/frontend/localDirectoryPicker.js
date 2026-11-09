@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { exportDirectoryEndpoint, isWindowsDirectoryPath } from './src/data/exportDirectory.js'
+import { isWindowsDirectoryPath, localDirectoryEndpoint } from './src/data/localDirectory.js'
 
 const runFile = promisify(execFile)
 const loopbackAddresses = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
@@ -53,7 +53,7 @@ export default function localDirectoryPicker() {
 
   function install(server) {
     server.middlewares.use(async (request, response, next) => {
-      if (request.url !== exportDirectoryEndpoint) return next()
+      if (request.url !== localDirectoryEndpoint) return next()
 
       response.setHeader('Cache-Control', 'no-store')
       if (request.method !== 'POST') {

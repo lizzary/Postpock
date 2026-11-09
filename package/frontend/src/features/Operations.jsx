@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { AuthorPicker } from '../components/AuthorPicker.jsx'
 import { Dialog, Icon, PlatformBadge } from '../components/UI.jsx'
+import { useLocalDirectoryPicker } from '../components/useLocalDirectoryPicker.js'
 import { formatDate, local, platforms as platformCatalog } from '../data/library.js'
 import {
   acknowledgeArchive, activePostStates, beginLogin, cancelLogin, clearTaskHistory,
@@ -96,25 +97,13 @@ function Connections({ language, snapshot, onClose }) {
 function Settings({ language, settings, onSettingsChange, onClose, notify }) {
   const t = pick(language)
   const [path, setPath] = useState(settings.databasePath)
-  const directoryInput = useRef(null)
-
-  async function chooseDirectory() {
-    if (!window.showDirectoryPicker) {
-      directoryInput.current?.click()
-      return
-    }
-    try {
-      const directory = await window.showDirectoryPicker()
-      setPath(directory.name)
-    } catch (error) {
-      if (error.name !== 'AbortError') directoryInput.current?.click()
-    }
-  }
+  const [directoryUnavailable, setDirectoryUnavailable] = useState(false)
+  const { choosing, chooseDirectory } = useLocalDirectoryPicker(setPath, () => setDirectoryUnavailable(true))
 
   function savePath(event) {
     event.preventDefault()
     const databasePath = path.trim()
-    if (!databasePath || databasePath === settings.databasePath) return
+    if (choosing || !databasePath || databasePath === settings.databasePath) return
     onSettingsChange({ databasePath })
     setPath(databasePath)
     notify?.(t('数据库目录设置已保存', 'Library folder preference saved'))
@@ -145,22 +134,21 @@ function Settings({ language, settings, onSettingsChange, onClose, notify }) {
           <form className="op-path-setting" onSubmit={savePath}>
             <label htmlFor="database-path">{t('数据库目录', 'Library folder')}</label>
             <div className="op-folder-field">
-              <input id="database-path" className="input" placeholder="data" value={path} onChange={(event) => setPath(event.target.value)} required />
-              <button type="button" className="button button-soft" onClick={chooseDirectory}><Icon name="folder" size={18} />{t('选择', 'Browse')}</button>
-              <input
-                ref={directoryInput}
-                type="file"
-                webkitdirectory=""
-                hidden
-                onChange={(event) => {
-                  const selected = event.target.files[0]?.webkitRelativePath.split('/')[0]
-                  if (selected) setPath(selected)
-                  event.target.value = ''
-                }}
-              />
-              <button type="submit" className="button button-primary" disabled={!path.trim() || path.trim() === settings.databasePath}>{t('应用', 'Apply')}</button>
+              <input id="database-path" className="input" placeholder={t('输入完整目录路径', 'Enter the full folder path')} value={path}
+                aria-describedby="database-path-help" readOnly={choosing} onChange={(event) => setPath(event.target.value)} required />
+              <button type="button" className="button button-soft" aria-busy={choosing} aria-disabled={choosing} onClick={() => {
+                setDirectoryUnavailable(false)
+                chooseDirectory()
+              }}>
+                <Icon name={choosing ? 'loader' : 'folder'} size={18} className={choosing ? 'op-spin' : undefined} />{t('选择', 'Browse')}
+              </button>
+              <button type="submit" className="button button-primary" disabled={choosing || !path.trim() || path.trim() === settings.databasePath}>{t('应用', 'Apply')}</button>
             </div>
-            <p className="op-setting-help">{t('也可输入完整路径。浏览器目录选择器仅返回目录名称。', 'You can enter a full path. The browser picker returns the folder name.')}</p>
+            <p id="database-path-help" className="op-setting-help" role="status">
+              {directoryUnavailable
+                ? t('无法打开系统目录选择器，请输入完整路径。', 'The system folder picker is unavailable. Enter the full path.')
+                : t('也可手动输入完整路径。', 'You can also enter the full path manually.')}
+            </p>
           </form>
           <div className="op-setting">
             <label htmlFor="worker-count">{t('同步任务线程数', 'Sync workers')}</label>

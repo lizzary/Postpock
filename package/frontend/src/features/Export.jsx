@@ -2,12 +2,12 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { AuthorPicker } from '../components/AuthorPicker.jsx';
 import Popover from '../components/Popover.jsx';
 import { Dialog, Icon } from '../components/UI.jsx';
+import { useLocalDirectoryPicker } from '../components/useLocalDirectoryPicker.js';
 import { local } from '../data/library.js';
 import {
   buildExportTree, cleanFilenameInput, getAuthorPosts, getDatePosts, getExportDraft,
   getExportKeys, getExtensionOptions, isSingleDay, localDate, saveExportDraft,
 } from '../data/export.js';
-import { chooseExportDirectory } from '../data/exportDirectory.js';
 import './export.css';
 
 const copy = {
@@ -215,32 +215,8 @@ function DateScope({ draft, datePosts, update, language, t }) {
 function Destination({ path, onChange, t }) {
   const id = useId();
   const anchor = useRef(null);
-  const request = useRef(null);
   const [open, setOpen] = useState(false);
-  const [choosing, setChoosing] = useState(false);
-
-  useEffect(() => () => request.current?.abort(), []);
-
-  async function chooseDirectory() {
-    if (request.current) return;
-    if (open) {
-      setOpen(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    request.current = controller;
-    setChoosing(true);
-    try {
-      const folderPath = await chooseExportDirectory(controller.signal);
-      if (folderPath && !controller.signal.aborted) onChange(folderPath);
-    } catch {
-      if (!controller.signal.aborted) setOpen(true);
-    } finally {
-      request.current = null;
-      if (!controller.signal.aborted) setChoosing(false);
-    }
-  }
+  const { choosing, chooseDirectory } = useLocalDirectoryPicker(onChange, () => setOpen(true));
 
   return (
     <div className="export-field">
@@ -250,7 +226,7 @@ function Destination({ path, onChange, t }) {
           readOnly={choosing} onChange={(event) => onChange(event.target.value)} />
         <button type="button" ref={anchor} className="icon-button" aria-label={t.browse} title={choosing ? t.browsing : t.browse}
           aria-busy={choosing} aria-disabled={choosing}
-          aria-expanded={open} aria-controls={`${id}-suggestions`} onClick={chooseDirectory}>
+          aria-expanded={open} aria-controls={`${id}-suggestions`} onClick={() => open ? setOpen(false) : chooseDirectory()}>
           <Icon name="folder" size={18} />
         </button>
         <Popover open={open} anchorRef={anchor} onDismiss={(reason) => {
