@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Icon } from '../components/UI.jsx'
 import { readLocalFile } from '../data/localFiles.js'
 
-export default function AssetField({ label, value, onChange, accept, language, validate = true }) {
+export default function AssetField({ label, value, onChange, accept, language, placeholder, validate = true }) {
   const en = language === 'en'
   const [error, setError] = useState('')
   const [pending, setPending] = useState(false)
@@ -34,7 +34,7 @@ export default function AssetField({ label, value, onChange, accept, language, v
     <label><span>{label}</span>
       <input className="input" type={validate && !isLocal && !isFixture ? 'url' : 'text'} value={sourceLabel || ''}
         readOnly={isLocal || isFixture} inputMode="url"
-        placeholder={en ? 'https://…' : '输入网址或选取本地文件'}
+        placeholder={placeholder ?? (en ? 'https://…' : '输入网址或选取本地文件')}
         pattern={validate && !isLocal && !isFixture ? 'https?://.+' : undefined}
         onChange={(event) => onChange(event.target.value)} />
     </label>

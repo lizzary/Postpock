@@ -216,6 +216,7 @@
   gap: .15rem;
 }
 
+.export-directory-help { max-width: 28ch; padding: .22rem .35rem .45rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
 .export-directory-options > span { font-size: .74rem; font-weight: 760; color: var(--muted); padding: .2rem .35rem; }
 .export-directory-options > button {
   display: flex;

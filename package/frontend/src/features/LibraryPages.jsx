@@ -4,6 +4,7 @@ import { Icon, PlatformBadge } from '../components/UI.jsx'
 import { formatDate, libraryApi, local, platforms } from '../data/library.js'
 import { postHref, webUrl } from '../data/postContent.js'
 import ArchiveSketch from './ArchiveSketch.jsx'
+import { pickHomeGreeting } from './homeGreeting.js'
 import { ConnectionStatus, useOperations } from './Operations.jsx'
 import PostBody from './PostBody.jsx'
 
@@ -12,6 +13,8 @@ export const authorHref = (id) => `#/creator/${encodeURIComponent(id)}`
 export function Home({ authors, posts, language, open }) {
   const en = language === 'en'
   const [platformFilter, setPlatformFilter] = useState('all')
+  const [greeting] = useState(pickHomeGreeting)
+  const [greetingTitle, greetingNote] = greeting[en ? 'en' : 'zh']
   const groups = platforms.filter(({ id }) => platformFilter === 'all' || platformFilter === id)
 
   return <>
@@ -19,8 +22,8 @@ export function Home({ authors, posts, language, open }) {
       <div className="shell home-hero-inner">
         <ArchiveSketch />
         <div className="hero-copy">
-          <h1 id="home-title">{en ? 'Hey, welcome back.' : '回来啦。'}</h1>
-          <p>{en ? 'What are we looking at today?' : '今天想看点什么？'}</p>
+          <h1 id="home-title">{greetingTitle}</h1>
+          <p>{greetingNote}</p>
           <a href="#collection" className="hero-button" onClick={(event) => {
             event.preventDefault()
             const collection = document.getElementById('collection')
@@ -39,7 +42,7 @@ export function Home({ authors, posts, language, open }) {
         </div>
         <button type="button" className="button button-primary" onClick={() => open('newAuthor')}><Icon name="plus" size={18} />{en ? 'Add creator' : '收藏新作者'}</button>
       </div>
-      <div className="platform-filters" aria-label={en ? 'Filter by platform' : '按平台筛选'}>
+      <div className="platform-filters" role="group" aria-label={en ? 'Filter by platform' : '按平台筛选'}>
         <button type="button" className="filter-tab" aria-pressed={platformFilter === 'all'} onClick={() => setPlatformFilter('all')}><Icon name="grid" size={15} />{en ? 'All platforms' : '全部平台'}</button>
         {platforms.map(({ id }) => <button type="button" key={id} className="filter-tab" aria-pressed={platformFilter === id} onClick={() => setPlatformFilter(id)}><PlatformBadge platform={id} /></button>)}
       </div>
@@ -64,7 +67,7 @@ export function Home({ authors, posts, language, open }) {
 
 function CreatorCard({ author, language, count }) {
   return <a className="creator-card" href={authorHref(author.id)}>
-    <div className={`creator-card-art ${author.cover ? '' : `pattern-${author.pattern || 'lattice'}`}`}>{author.cover && <img src={author.cover} alt="" loading="lazy" />}</div>
+    <div className="creator-card-art"><img src={author.cover} alt="" loading="lazy" /></div>
     <div className="creator-card-content">
       <img className="creator-avatar" src={author.avatar} alt="" loading="lazy" />
       <span className="card-arrow"><Icon name="arrow-up-right" size={18} /></span>
@@ -108,11 +111,9 @@ export function AuthorPage({ author, posts, databasePath, language, open }) {
 
   return <>
     <section className="author-hero" aria-labelledby="author-title">
-      <div className={`author-cover ${author.cover ? 'has-cover' : `pattern-${author.pattern || 'lattice'}`}`}>
-        {author.cover && <>
-          <img className="author-cover-backdrop" src={author.cover} alt="" aria-hidden="true" />
-          <img className="author-cover-image" src={author.cover} alt="" fetchPriority="high" />
-        </>}
+      <div className="author-cover">
+        <img className="author-cover-backdrop" src={author.cover} alt="" aria-hidden="true" />
+        <img className="author-cover-image" src={author.cover} alt="" fetchPriority="high" />
       </div>
       <div className="shell author-profile">
         <img className="profile-avatar" src={author.avatar} alt="" />

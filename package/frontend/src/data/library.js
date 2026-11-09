@@ -33,7 +33,6 @@ export function formatDate(value, language) {
   }).format(new Date(value))
 }
 
-export const geometry = ['lattice', 'orbit', 'weave', 'petal']
 const illustrated = (name) => asset(`art/${name}.svg`)
 const profiles = [
   ['mio', 'fanbox', '澪 / MIO', '把海、月亮和那些来不及寄出的信画下来。', 'Painting the sea, the moon, and letters never sent.', 'moon-coast', 'https://www.fanbox.cc/'],
@@ -47,6 +46,37 @@ const profiles = [
 const authors = profiles.map(([id, platform, name, zh, en, scene, url]) => ({
   id, platform, name, description: { zh, en }, cover: illustrated(scene), avatar: illustrated(`avatar-${id}`), url,
 }))
+
+const defaultAuthorImages = {
+  cover: [
+    ...authors.map(({ cover }) => cover),
+    ...['lake-lanterns', 'persimmon-lane', 'snowbound-post', 'hillside-greenhouse'].map(illustrated),
+  ],
+  avatar: authors.map(({ avatar }) => avatar),
+}
+
+const normalizeImagePath = (path) => path?.replace(/^\.\//, '/')
+export function isDefaultAuthorImage(type, src) {
+  const path = normalizeImagePath(src)
+  return defaultAuthorImages[type].some((image) => normalizeImagePath(image) === path)
+}
+
+function withDefaultAuthorImages({ pattern: _pattern, ...author }, pickImage) {
+  return {
+    ...author,
+    cover: author.cover || pickImage(defaultAuthorImages.cover),
+    avatar: author.avatar || pickImage(defaultAuthorImages.avatar),
+  }
+}
+
+function restoreAuthor(author) {
+  // Older records may have no image. Use their ID to keep the replacement stable across reloads.
+  return withDefaultAuthorImages(author, (images) => {
+    let hash = 0
+    for (const char of author.id) hash = (Math.imul(hash, 31) + char.charCodeAt(0)) >>> 0
+    return images[hash % images.length]
+  })
+}
 
 const scenes = [
   ['mio', 'moon-coast', '给月亮的回信', 'A Letter to the Moon', '海边夜行手记 · 第四章', 'Coastal field notes · chapter four', '2026-11-06'],
@@ -137,7 +167,7 @@ async function loadLibrary(path) {
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => resolve(null)
   })
-  if (current === revision) publish({ authors: saved?.authors ?? authors, posts: saved?.posts ?? posts, ready: true })
+  if (current === revision) publish({ authors: saved?.authors?.map(restoreAuthor) ?? authors, posts: saved?.posts ?? posts, ready: true })
 }
 
 loadLibrary(library.settings.databasePath)
@@ -168,9 +198,8 @@ function upsert(current, incoming) {
 
 export const libraryApi = {
   saveAuthor(author) {
-    const fallback = geometry[Math.floor(Math.random() * geometry.length)]
-    const avatar = author.avatar || authors[Math.floor(Math.random() * authors.length)].avatar
-    const record = { ...author, id: author.id || newId(), avatar, pattern: author.pattern || fallback }
+    const record = withDefaultAuthorImages({ ...author, id: author.id || newId() },
+      (images) => images[Math.floor(Math.random() * images.length)])
     return { record, saved: persist({ authors: upsert(library.authors, [record]) }) }
   },
   savePost(post) {

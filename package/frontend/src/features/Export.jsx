@@ -7,6 +7,7 @@ import {
   buildExportTree, cleanFilenameInput, getAuthorPosts, getDatePosts, getExportDraft,
   getExportKeys, getExtensionOptions, isSingleDay, localDate, saveExportDraft,
 } from '../data/export.js';
+import { chooseExportDirectory } from '../data/exportDirectory.js';
 import './export.css';
 
 const copy = {
@@ -18,8 +19,8 @@ const copy = {
     fileTypes: '文件类型', allTypes: '所有类型', noTypes: '选择类型', noExtension: '无扩展名',
     emptyTypes: '没有可选的文件类型。', selectAll: '全选', selectNone: '清除',
     organize: '整理文件', destination: '导出路径', browse: '选择目录',
-    directorySuggestions: '示例目录', pathPlaceholder: '输入导出目录',
-    pickedDirectory: '浏览器已填入目录名称。也可手动输入完整路径。',
+    directorySuggestions: '示例目录', pathPlaceholder: '输入完整导出路径',
+    browsing: '正在打开系统目录选择器', directoryUnavailable: '无法打开系统目录选择器，请输入完整路径。',
     pattern: '文件名与相对路径', patternPlaceholder: '输入文字，或插入一个字段', insertField: '插入字段',
     patternHint: '用 / 分隔文件夹。',
     aggregation: '聚合键', data: '数据键', removeKey: '移除字段', searchKeys: '搜索字段', noKeys: '没有匹配的字段。',
@@ -41,8 +42,8 @@ const copy = {
     fileTypes: 'File types', allTypes: 'All types', noTypes: 'Choose file types', noExtension: 'No extension',
     emptyTypes: 'There are no file types to choose from.', selectAll: 'Select all', selectNone: 'Clear',
     organize: 'Arrange the files', destination: 'Destination', browse: 'Choose folder',
-    directorySuggestions: 'Sample locations', pathPlaceholder: 'Enter an export folder',
-    pickedDirectory: 'The browser filled in the folder name. You can also enter a full path.',
+    directorySuggestions: 'Sample locations', pathPlaceholder: 'Enter the full export path',
+    browsing: 'Opening the system folder picker', directoryUnavailable: 'The system folder picker is unavailable. Enter the full path.',
     pattern: 'Filename and relative path', patternPlaceholder: 'Type a name or insert a field', insertField: 'Insert field',
     patternHint: 'Use / to separate folders.',
     aggregation: 'Grouping fields', data: 'Data fields', removeKey: 'Remove field', searchKeys: 'Search fields', noKeys: 'No matching fields.',
@@ -214,26 +215,31 @@ function DateScope({ draft, datePosts, update, language, t }) {
 function Destination({ path, onChange, t }) {
   const id = useId();
   const anchor = useRef(null);
+  const request = useRef(null);
   const [open, setOpen] = useState(false);
-  const [pickedDirectory, setPickedDirectory] = useState(false);
+  const [choosing, setChoosing] = useState(false);
+
+  useEffect(() => () => request.current?.abort(), []);
 
   async function chooseDirectory() {
-    if (!window.showDirectoryPicker || open) {
-      setOpen(!open);
+    if (request.current) return;
+    if (open) {
+      setOpen(false);
       return;
     }
-    try {
-      const folder = await window.showDirectoryPicker();
-      onChange(folder.name);
-      setPickedDirectory(true);
-    } catch (error) {
-      if (error.name !== 'AbortError') setOpen(true);
-    }
-  }
 
-  function editPath(value) {
-    onChange(value);
-    setPickedDirectory(false);
+    const controller = new AbortController();
+    request.current = controller;
+    setChoosing(true);
+    try {
+      const folderPath = await chooseExportDirectory(controller.signal);
+      if (folderPath && !controller.signal.aborted) onChange(folderPath);
+    } catch {
+      if (!controller.signal.aborted) setOpen(true);
+    } finally {
+      request.current = null;
+      if (!controller.signal.aborted) setChoosing(false);
+    }
   }
 
   return (
@@ -241,8 +247,9 @@ function Destination({ path, onChange, t }) {
       <label className="export-label" htmlFor={id}>{t.destination}</label>
       <div className="export-destination">
         <input id={id} className="input" value={path} placeholder={t.pathPlaceholder} autoComplete="off"
-          aria-describedby={pickedDirectory ? `${id}-help` : undefined} onChange={(event) => editPath(event.target.value)} />
-        <button type="button" ref={anchor} className="icon-button" aria-label={t.browse} title={t.browse}
+          readOnly={choosing} onChange={(event) => onChange(event.target.value)} />
+        <button type="button" ref={anchor} className="icon-button" aria-label={t.browse} title={choosing ? t.browsing : t.browse}
+          aria-busy={choosing} aria-disabled={choosing}
           aria-expanded={open} aria-controls={`${id}-suggestions`} onClick={chooseDirectory}>
           <Icon name="folder" size={18} />
         </button>
@@ -250,17 +257,17 @@ function Destination({ path, onChange, t }) {
           setOpen(false);
           if (reason === 'escape') anchor.current.focus({ preventScroll: true });
         }} className="export-picker-panel export-directory-options" id={`${id}-suggestions`} minWidth={240} align="end">
+          <p className="export-directory-help" role="status">{t.directoryUnavailable}</p>
           <span>{t.directorySuggestions}</span>
           {['C:\\PostPock\\Exports', 'D:\\Archives\\PostPock'].map((suggestion) => (
             <button type="button" key={suggestion} onClick={() => {
-              editPath(suggestion);
+              onChange(suggestion);
               setOpen(false);
               anchor.current.focus({ preventScroll: true });
             }}><Icon name="folder" size={15} />{suggestion}</button>
           ))}
         </Popover>
       </div>
-      {pickedDirectory && <p className="export-field-hint" id={`${id}-help`} role="status">{t.pickedDirectory}</p>}
     </div>
   );
 }

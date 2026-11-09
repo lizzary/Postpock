@@ -1,7 +1,7 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import Select from '../components/Select.jsx'
 import { Dialog, Icon } from '../components/UI.jsx'
-import { local, platforms, today } from '../data/library.js'
+import { isDefaultAuthorImage, local, platforms, today } from '../data/library.js'
 import { mediaFormats, updateText, webUrl } from '../data/postContent.js'
 import AssetField from './AssetField.jsx'
 
@@ -36,8 +36,10 @@ export function AuthorEditor({ author, language, onClose, onSave }) {
           options={platforms.map((entry) => ({ value: entry.id, label: entry.name }))} />
       </div>
       <label className="field"><span>{en ? 'Creator page URL' : '作者主页链接'}</span><input className="input" type="url" name="url" defaultValue={author?.url} placeholder={platforms.find((entry) => entry.id === platform).url} pattern="https?://.+" /></label>
-      <AssetField label={en ? 'Avatar (optional)' : '头像（可选）'} value={avatar} onChange={setAvatar} accept="image/*" language={language} />
-      <AssetField label={en ? 'Header image (optional)' : '头图（可选）'} value={cover} onChange={setCover} accept="image/*" language={language} />
+      <AssetField label={en ? 'Avatar (optional)' : '头像（可选）'} placeholder={en ? 'Default avatar' : '默认头像'}
+        value={isDefaultAuthorImage('avatar', avatar) ? '' : avatar} onChange={setAvatar} accept="image/*" language={language} />
+      <AssetField label={en ? 'Header image (optional)' : '头图（可选）'} placeholder={en ? 'Default header image' : '默认头图'}
+        value={isDefaultAuthorImage('cover', cover) ? '' : cover} onChange={setCover} accept="image/*" language={language} />
       <label className="field"><span>{en ? 'Biography' : '作者简介'}</span><textarea className="input" name="description" rows="3" defaultValue={local(author?.description, language)} maxLength={1000} /></label>
       <div className="dialog-actions"><button type="button" className="button button-quiet" onClick={onClose}>{en ? 'Cancel' : '取消'}</button>
         <button className="button button-primary"><Icon name="check" size={17} />{en ? 'Save creator' : '保存作者'}</button></div>
