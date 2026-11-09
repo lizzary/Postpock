@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import Select from './components/Select.jsx'
 import { Dialog, Icon, PlatformBadge } from './components/UI.jsx'
 import { asset, libraryApi, local, platforms, searchPosts, useLibrary } from './data/library.js'
+import { postHref } from './data/postContent.js'
 import { AuthorEditor, PostEditor } from './features/Editors.jsx'
 import Export from './features/Export.jsx'
-import { AuthorPage, Home, PostPage, authorHref, postHref } from './features/LibraryPages.jsx'
+import { AuthorPage, Home, PostPage, authorHref } from './features/LibraryPages.jsx'
 import { Operations, useOperations } from './features/Operations.jsx'
 import './styles.css'
 import './features/delete.css'
@@ -96,7 +97,7 @@ function App() {
   return <>
     <a className="skip-link" href="#main-content" onClick={(event) => { event.preventDefault(); document.querySelector('main').focus() }}>{en ? 'Skip to content' : '跳到正文'}</a>
     <Header language={language} open={setView} home={route.page === 'home'} />
-    <main className="shell main-content" id="main-content" tabIndex={-1}>
+    <main key={`${route.page}:${route.id ?? ''}`} className="shell main-content" id="main-content" tabIndex={-1}>
       {!ready ? <div className="empty-note" role="status">{en ? 'Opening the archive…' : '正在打开收藏馆…'}</div>
         : missing ? <div className="empty-note"><p>{en ? 'This page is no longer on the shelf.' : '这页档案不在当前馆藏中。'}</p><a className="button button-soft" href="#/">{en ? 'Back to the collection' : '返回收藏馆'}<Icon name="arrow-right" size={16} /></a></div>
           : route.page === 'home' ? <Home authors={authors} posts={posts} language={language} open={setView} />
@@ -162,6 +163,12 @@ function Header({ language, open, home }) {
   </header>
 }
 
+function SearchScope({ selected, onClick, children }) {
+  return <button type="button" className="filter-tab search-scope" aria-pressed={selected} onClick={onClick}>
+    {children}<Icon name="check" size={13} className="search-scope-check" />
+  </button>
+}
+
 function Search({ authors, posts, authorId, language, onClose }) {
   const en = language === 'en'
   const [query, setQuery] = useState('')
@@ -175,10 +182,10 @@ function Search({ authors, posts, authorId, language, onClose }) {
   return <Dialog title={en ? 'Search the archive' : '在馆藏中寻找'} eyebrow={en ? 'INDEX' : '馆藏索引'} onClose={onClose} className="search-dialog">
     <div className="search-body">
       <label className="search-input"><Icon name="search" /><input data-initial-focus type="search" aria-label={en ? 'Search keywords' : '搜索关键词'} placeholder={en ? 'A title, a name, a fragment…' : '搜索标题、作者，或记得的片段…'} value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>Esc</kbd></label>
-      <div className="search-scopes">
+      <div className="search-scopes" role="group" aria-label={en ? 'Search scopes' : '搜索范围'}>
         {[[en ? 'Title' : '标题', 'title'], [en ? 'Body' : '正文', 'body'], [en ? 'Creator' : '作者', 'author'], [en ? 'Images' : '图像', 'image']].map(([label, id]) =>
-          <button type="button" className="filter-tab" aria-pressed={fields.includes(id)} key={id} onClick={() => setFields((current) => toggle(current, id))}>{label}</button>)}
-        {platforms.map(({ id }) => <button type="button" className="filter-tab" aria-pressed={platformIds.includes(id)} key={id} onClick={() => setPlatformIds((current) => toggle(current, id))}><PlatformBadge platform={id} /></button>)}
+          <SearchScope selected={fields.includes(id)} key={id} onClick={() => setFields((current) => toggle(current, id))}>{label}</SearchScope>)}
+        {platforms.map(({ id }) => <SearchScope selected={platformIds.includes(id)} key={id} onClick={() => setPlatformIds((current) => toggle(current, id))}><PlatformBadge platform={id} /></SearchScope>)}
       </div>
       <Select showLabel searchable label={en ? 'Creator filter' : '指定作者'} value={creator} onChange={setCreator} language={language}
         options={[{ value: '', label: en ? 'All creators' : '全部作者' }, ...authors.map(({ id }) => ({ value: id, label: authorNames.get(id) }))]} />

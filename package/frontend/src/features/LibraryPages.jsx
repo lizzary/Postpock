@@ -2,12 +2,12 @@ import { useRef, useState } from 'react'
 import Select from '../components/Select.jsx'
 import { Icon, PlatformBadge } from '../components/UI.jsx'
 import { formatDate, libraryApi, local, platforms } from '../data/library.js'
+import { postHref, webUrl } from '../data/postContent.js'
 import ArchiveSketch from './ArchiveSketch.jsx'
 import { ConnectionStatus, useOperations } from './Operations.jsx'
-import { webUrl } from './Editors.jsx'
+import PostBody from './PostBody.jsx'
 
 export const authorHref = (id) => `#/creator/${encodeURIComponent(id)}`
-export const postHref = (id) => `#/post/${encodeURIComponent(id)}`
 
 export function Home({ authors, posts, language, open }) {
   const en = language === 'en'
@@ -34,7 +34,6 @@ export function Home({ authors, posts, language, open }) {
     <section className="shell collection" id="collection" tabIndex={-1} aria-labelledby="collection-title">
       <div className="collection-heading">
         <div>
-          <div className="eyebrow collection-index"><span>01</span>{en ? 'THE COLLECTION' : '馆藏目录'}</div>
           <h2 id="collection-title">{en ? 'Creators' : '创作者'}</h2>
           <p>{en ? `${authors.length} creators · ${posts.length} archived posts` : `${authors.length} 位作者 · ${posts.length} 篇馆藏文章`}</p>
         </div>
@@ -134,9 +133,10 @@ export function AuthorPage({ author, posts, databasePath, language, open }) {
     <section className="shell author-library" aria-labelledby="author-library-title" ref={archive}>
       <nav className="breadcrumbs" aria-label={en ? 'Breadcrumb' : '页面路径'}><a href="#/"><Icon name="arrow-left" size={16} />{en ? 'Collection' : '收藏馆'}</a><Icon name="chevron-right" size={13} /><span aria-current="page">{local(author.name, language)}</span></nav>
       <div className="collection-heading">
-        <div><div className="eyebrow collection-index"><span>02</span>{en ? 'CREATOR ARCHIVE' : '作者档案'}</div>
+        <div>
           <h2 id="author-library-title">{en ? 'Archived posts' : '馆藏文章'}</h2>
-          <p>{en ? `${authorPosts.length} ${authorPosts.length === 1 ? 'entry' : 'entries'} on this shelf` : `这一页收藏了 ${authorPosts.length} 篇文章`}</p></div>
+          <p>{en ? `${authorPosts.length} ${authorPosts.length === 1 ? 'entry' : 'entries'} on this shelf` : `这一页收藏了 ${authorPosts.length} 篇文章`}</p>
+        </div>
         <button className="button button-primary" type="button" onClick={() => open('newPost')}><Icon name="plus" size={18} />{en ? 'Add post' : '添加文章'}</button>
       </div>
       <div className="post-tools">
@@ -194,7 +194,6 @@ export function PostPage({ post, author, posts, language, open }) {
     </nav>
     <article className="reader">
       <header className="reader-intro">
-        <div className="eyebrow collection-index"><span>03</span>{en ? 'FROM THE ARCHIVE' : '馆藏选页'}</div>
         <h1>{title}</h1>
         {local(post.subtitle, language) && <p className="reader-subtitle">{local(post.subtitle, language)}</p>}
         <div className="reader-meta">
@@ -209,34 +208,8 @@ export function PostPage({ post, author, posts, language, open }) {
         </div>
       </header>
       <div className="reader-cover"><img src={post.cover} alt={title} fetchPriority="high" /></div>
-      <div className="reader-body">{post.blocks.map((block, index) => <ContentBlock key={index} block={block} posts={posts} language={language} />)}</div>
+      <PostBody blocks={post.blocks} posts={posts} language={language} />
       <footer className="reader-end"><Icon name="spark" size={23} /><a href={authorHref(author.id)}>{en ? 'Back to the creator’s shelf' : '返回作者档案'}<Icon name="arrow-right" size={17} /></a></footer>
     </article>
   </>
-}
-
-function ContentBlock({ block, posts, language }) {
-  const en = language === 'en'
-  const caption = local(block.caption, language)
-  if (block.type === 'text') return <div className="prose">{local(block.text, language).split(/\n\n+/).map((text, index) => <p key={index}>{text}</p>)}</div>
-  if (block.type === 'image') return <figure className="reader-image"><img src={block.src} alt={local(block.alt, language) || caption} loading="lazy" />{caption && <figcaption>{caption}</figcaption>}</figure>
-  if (block.type === 'audio' || block.type === 'video') {
-    const Media = block.type
-    return <figure className={`reader-media media-${block.type}`}>{caption && <figcaption><Icon name={block.type === 'audio' ? 'music' : 'video'} size={18} />{caption}</figcaption>}
-      <Media controls src={block.src} preload="metadata" aria-label={caption || (block.type === 'audio' ? (en ? 'Audio' : '音频') : (en ? 'Video' : '视频'))} /></figure>
-  }
-  if (block.type === 'attachment') return <a className="reader-attachment" href={block.src} download={block.name || true}><Icon name="file" /><span>{block.name || (en ? 'Attachment' : '附件')}</span><Icon name="download" /></a>
-  if (!['link', 'linkCard'].includes(block.type)) return null
-  const linked = posts.find((post) => post.id === block.postId)
-  const href = linked ? postHref(linked.id) : webUrl(block.url)
-  if (!href) return null
-  const linkTitle = local(block.title, language) || local(linked?.title, language) || href
-  const target = linked ? {} : { target: '_blank', rel: 'noreferrer' }
-  if (block.type === 'link') return <a className="reader-link" href={href} {...target}><Icon name="link" size={18} />{linkTitle}<Icon name="arrow-up-right" size={15} /></a>
-  const image = block.image || linked?.cover
-  return <a className="reader-link-card" href={href} {...target}>
-    {image && <img src={image} alt="" loading="lazy" />}
-    <span><strong>{linkTitle}</strong>{local(block.text, language) && <small>{local(block.text, language)}</small>}</span>
-    <Icon name="arrow-up-right" size={19} />
-  </a>
 }

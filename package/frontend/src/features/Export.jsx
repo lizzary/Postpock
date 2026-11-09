@@ -13,7 +13,7 @@ const copy = {
   zh: {
     title: '导出馆藏', collection: '导出范围', creators: '作者', allCreators: '所有作者', noCreators: '选择作者',
     dates: '发布日期', allDates: '不限日期', sameDay: '同一天', today: '今天',
-    dateStart: '开始日期', dateEnd: '结束日期', dateError: '请选择有效的日期范围。',
+    dateStart: '开始日期', dateEnd: '结束日期', datePlaceholder: '选择日期', dateError: '请选择有效的日期范围。',
     posts: '当日投稿', noPosts: '所选作者在当天没有投稿。',
     fileTypes: '文件类型', allTypes: '所有类型', noTypes: '选择类型', noExtension: '无扩展名',
     emptyTypes: '没有可选的文件类型。', selectAll: '全选', selectNone: '清除',
@@ -36,7 +36,7 @@ const copy = {
   en: {
     title: 'Export collection', collection: 'Export scope', creators: 'Creators', allCreators: 'All creators', noCreators: 'Choose creators',
     dates: 'Publication date', allDates: 'All dates', sameDay: 'Same day', today: 'Today',
-    dateStart: 'Start date', dateEnd: 'End date', dateError: 'Choose a valid date range.',
+    dateStart: 'Start date', dateEnd: 'End date', datePlaceholder: 'Select date', dateError: 'Choose a valid date range.',
     posts: 'Posts on this day', noPosts: 'These creators have no posts on this day.',
     fileTypes: 'File types', allTypes: 'All types', noTypes: 'Choose file types', noExtension: 'No extension',
     emptyTypes: 'There are no file types to choose from.', selectAll: 'Select all', selectNone: 'Clear',
@@ -136,6 +136,19 @@ function ExtensionPicker({ extensions, selection, onChange, t }) {
   );
 }
 
+function DateField({ label, placeholder, value, min, invalid, errorId, onChange }) {
+  return (
+    <label>
+      <span>{label}</span>
+      <span className="export-date-control">
+        <input className="input" type="date" value={value} min={min} aria-invalid={invalid}
+          aria-describedby={invalid ? errorId : undefined} onChange={(event) => onChange(event.target.value)} />
+        {!value && <span className="export-date-placeholder" aria-hidden="true">{placeholder}</span>}
+      </span>
+    </label>
+  );
+}
+
 function DateScope({ draft, datePosts, update, language, t }) {
   const allDates = draft.dateMode === 'all';
   const start = allDates ? '' : draft.start;
@@ -162,17 +175,11 @@ function DateScope({ draft, datePosts, update, language, t }) {
       <legend className="export-label">{t.dates}</legend>
       <div className="export-date-card">
         <div className="export-date-inputs">
-          <label><span>{t.dateStart}</span>
-            <input className="input" type="date" value={start} aria-invalid={dateError}
-              aria-describedby={dateError ? errorId : undefined}
-              onChange={(event) => setDates(event.target.value, allDates ? event.target.value : end)} />
-          </label>
+          <DateField label={t.dateStart} placeholder={t.datePlaceholder} value={start} invalid={dateError} errorId={errorId}
+            onChange={(value) => setDates(value, allDates ? value : end)} />
           <Icon name="arrow-right" size={15} />
-          <label><span>{t.dateEnd}</span>
-            <input className="input" type="date" value={end} min={start || undefined} aria-invalid={dateError}
-              aria-describedby={dateError ? errorId : undefined}
-              onChange={(event) => setDates(allDates ? event.target.value : start, event.target.value)} />
-          </label>
+          <DateField label={t.dateEnd} placeholder={t.datePlaceholder} value={end} min={start || undefined}
+            invalid={dateError} errorId={errorId} onChange={(value) => setDates(allDates ? value : start, value)} />
         </div>
         <div className="export-date-toolbar">
           <button type="button" aria-pressed={allDates} onClick={() => setDates('', '')}>{t.allDates}</button>

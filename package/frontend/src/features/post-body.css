@@ -1,0 +1,16 @@
+.rich-prose { font-size: 1.08rem; line-height: 1.85; overflow-wrap: anywhere; }
+.rich-prose :is(h1, h2, h3, h4, h5, h6) { margin: 0; font-weight: 750; line-height: 1.35; }
+.rich-prose h1 { font-size: 1.8em; }
+.rich-prose h2 { font-size: 1.5em; }
+.rich-prose h3 { font-size: 1.25em; }
+.rich-prose h4 { font-size: 1.12em; }
+.rich-prose h5 { font-size: 1.03em; }
+.rich-prose h6 { font-size: .95em; }
+.rich-prose ul, .rich-prose ol { margin: 0; padding-inline-start: 1.65em; }
+.rich-prose blockquote { margin: 0; border-inline-start: 3px solid var(--accent); padding-inline-start: .9em; color: var(--muted); }
+.rich-prose a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: .18em; }
+.rich-prose hr { border: 0; border-top: 1px solid var(--line); }
+.rich-prose pre, .rich-prose :not(pre) > code { border-radius: 5px; background: var(--paper-raised); padding: .16em .38em; }
+.rich-prose pre { margin: 0; padding: .8em 1em; white-space: pre-wrap; }
+.reader-body > .rich-prose:empty { display: none; }
+.composer-loading { min-height: 200px; padding: 16px; color: var(--muted); }

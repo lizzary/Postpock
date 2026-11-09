@@ -74,8 +74,15 @@ export function PlatformBadge({ platform, showName = true }) {
   </span>
 }
 
+function isBackdrop(event) {
+  if (event.target !== event.currentTarget) return false
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect()
+  return event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom
+}
+
 export function Dialog({ title, eyebrow, description, onClose, children, className = '', wide = false }) {
   const ref = useRef(null)
+  const backdropPointer = useRef(null)
   const id = useId()
   const { settings: { language } } = useLibrary()
 
@@ -86,15 +93,30 @@ export function Dialog({ title, eyebrow, description, onClose, children, classNa
     return () => { if (element.open) element.close() }
   }, [])
 
-  function closeOnBackdrop(event) {
-    if (event.target !== event.currentTarget) return
-    const bounds = event.currentTarget.getBoundingClientRect()
-    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose()
+  function startBackdropPress(event) {
+    if (!event.isPrimary || event.button !== 0) return
+    backdropPointer.current = isBackdrop(event) ? event.pointerId : null
+  }
+
+  function cancelBackdropPress(event) {
+    if (backdropPointer.current === event.pointerId) backdropPointer.current = null
+  }
+
+  function finishBackdropPress(event) {
+    if (backdropPointer.current !== event.pointerId) return
+    cancelBackdropPress(event)
+    if (event.button === 0 && isBackdrop(event)) onClose()
   }
 
   return <dialog ref={ref} className={`dialog ${wide ? 'dialog-wide' : ''} ${className}`} aria-labelledby={id}
     aria-describedby={description ? `${id}-description` : undefined}
-    onClick={closeOnBackdrop} onCancel={(event) => { event.preventDefault(); onClose() }}>
+    onPointerDownCapture={startBackdropPress} onPointerUpCapture={finishBackdropPress} onPointerCancelCapture={cancelBackdropPress}
+    onCancel={(event) => {
+      // Dismissing a native file picker also emits a cancel event from its input.
+      if (event.target !== event.currentTarget) return
+      event.preventDefault()
+      onClose()
+    }}>
     <header className="dialog-heading">
       <div>
         {eyebrow && <div className="eyebrow">{eyebrow}</div>}
