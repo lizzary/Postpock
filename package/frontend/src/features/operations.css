@@ -162,6 +162,36 @@
 .op-folder-field .input { min-width: 0; }
 .op-setting-help { margin: 0; color: var(--muted); font-size: .78rem; }
 
+.op-integration-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .75rem;
+  margin-top: .48rem;
+  padding: .55rem .6rem;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  text-align: left;
+  transition: background .2s, border-color .2s;
+}
+.op-integration-icon {
+  display: grid;
+  place-items: center;
+  width: 2.45rem;
+  height: 2.45rem;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--paper-raised);
+  color: var(--accent-ink);
+}
+.op-integration-label { display: grid; gap: .16rem; line-height: 1.4; }
+.op-integration-label strong { font-size: .9rem; }
+.op-integration-label > span { color: var(--muted); font-size: .82rem; }
+.op-integration-arrow { margin-right: .15rem; color: var(--muted); transition: color .2s, transform .2s; }
+.op-integration-link:is(:hover, :focus-visible) { background: var(--op-tint); border-color: var(--line); }
+.op-integration-link:is(:hover, :focus-visible) .op-integration-arrow { color: var(--accent-ink); transform: translateX(2px); }
+
 .op-task-toolbar,
 .op-ledger-tools,
 .op-ledger-header,

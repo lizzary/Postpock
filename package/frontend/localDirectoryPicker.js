@@ -9,21 +9,113 @@ const loopbackHost = /^(?:localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i
 const pickerScript = String.raw`
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.Application]::EnableVisualStyles()
-$owner = [System.Windows.Forms.Form]::new()
-$owner.ShowInTaskbar = $false
-$owner.TopMost = $true
-$picker = [System.Windows.Forms.FolderBrowserDialog]::new()
-$picker.Description = 'PostPock'
-try {
-  if ($picker.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
-    [Console]::Write($picker.SelectedPath)
-  }
-} finally {
-  $picker.Dispose()
-  $owner.Dispose()
+Add-Type -ReferencedAssemblies System.dll, System.Windows.Forms.dll -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
+
+public static class PostPockFolderPicker
+{
+    private static readonly Guid FileOpenDialogClsid = new Guid("DC1C5A9C-E88A-4DDE-A5A1-60F82A20AEF7");
+    private const uint PickFolders = 0x20;
+    private const uint ForceFileSystem = 0x40;
+    private const uint FileSystemPath = 0x80058000;
+    private const int Cancelled = unchecked((int)0x800704C7);
+    private static readonly IntPtr PerMonitorAwareV2 = new IntPtr(-4);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+
+    // Keep the native method order, including the unused slots before GetResult.
+    [ComImport, Guid("42F85136-DB7E-439C-85F1-E4075D135FC8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IFileDialog
+    {
+        [PreserveSig] int Show(IntPtr owner);
+        void SetFileTypes(uint count, IntPtr filters);
+        void SetFileTypeIndex(uint index);
+        void GetFileTypeIndex(out uint index);
+        void Advise(IntPtr events, out uint cookie);
+        void Unadvise(uint cookie);
+        void SetOptions(uint options);
+        void GetOptions(out uint options);
+        void SetDefaultFolder(IShellItem folder);
+        void SetFolder(IShellItem folder);
+        void GetFolder(out IShellItem folder);
+        void GetCurrentSelection(out IShellItem item);
+        void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string name);
+        void GetFileName(out IntPtr name);
+        void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string title);
+        void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string label);
+        void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string label);
+        void GetResult(out IShellItem item);
+    }
+
+    [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellItem
+    {
+        void BindToHandler(IntPtr bindContext, ref Guid handler, ref Guid iid, out IntPtr result);
+        void GetParent(out IShellItem parent);
+        void GetDisplayName(uint format, out IntPtr name);
+    }
+
+    public static string Pick()
+    {
+        // Windows captures the thread's DPI awareness when each window is created.
+        IntPtr previousContext = SetThreadDpiAwarenessContext(PerMonitorAwareV2);
+        if (previousContext == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+
+        try
+        {
+            Application.EnableVisualStyles();
+            using (var owner = new Form { ShowInTaskbar = false, TopMost = true })
+            {
+                return ShowDialog(owner.Handle);
+            }
+        }
+        finally
+        {
+            SetThreadDpiAwarenessContext(previousContext);
+        }
+    }
+
+    private static string ShowDialog(IntPtr owner)
+    {
+        var dialog = (IFileDialog)Activator.CreateInstance(Type.GetTypeFromCLSID(FileOpenDialogClsid));
+        try
+        {
+            uint options;
+            dialog.GetOptions(out options);
+            dialog.SetOptions(options | PickFolders | ForceFileSystem);
+            dialog.SetTitle("PostPock");
+
+            int result = dialog.Show(owner);
+            if (result == Cancelled) return null;
+            Marshal.ThrowExceptionForHR(result);
+
+            IShellItem item;
+            dialog.GetResult(out item);
+            IntPtr path = IntPtr.Zero;
+            try
+            {
+                item.GetDisplayName(FileSystemPath, out path);
+                return Marshal.PtrToStringUni(path);
+            }
+            finally
+            {
+                Marshal.FreeCoTaskMem(path);
+                Marshal.ReleaseComObject(item);
+            }
+        }
+        finally
+        {
+            Marshal.ReleaseComObject(dialog);
+        }
+    }
 }
+'@
+$path = [PostPockFolderPicker]::Pick()
+if ($null -ne $path) { [Console]::Write($path) }
 `
 
 async function pickDirectory(signal) {

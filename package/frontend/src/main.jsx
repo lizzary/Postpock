@@ -7,6 +7,7 @@ import { postHref } from './data/postContent.js'
 import { AuthorEditor, PostEditor } from './features/Editors.jsx'
 import Export from './features/Export.jsx'
 import { AuthorPage, Home, PostPage, authorHref } from './features/LibraryPages.jsx'
+import { Mcp } from './features/Mcp.jsx'
 import { Operations, useOperations } from './features/Operations.jsx'
 import './styles.css'
 import './features/delete.css'
@@ -105,8 +106,10 @@ function App() {
               : <AuthorPage key={`${databasePath}:${author.id}`} author={author} posts={posts} databasePath={databasePath} language={language} open={setView} />}
     </main>
     <footer className="site-footer shell"><div className="footer-brand"><Icon name="layers" size={19} />PostPock</div><span>{en ? 'An archive of things worth keeping.' : '给值得珍藏的事物，留一页。'}</span></footer>
-    <Operations view={view} onClose={close} authorId={author?.id} authors={authors} posts={posts} language={language} settings={settings}
+    <Operations view={view === 'settings-from-mcp' ? 'settings' : view} focusMcpEntry={view === 'settings-from-mcp'}
+      onClose={close} authorId={author?.id} authors={authors} posts={posts} language={language} settings={settings}
       onSettingsChange={libraryApi.setSettings} notify={notify} onArchivePosts={libraryApi.archivePosts} onOpen={setView} libraryReady={ready} />
+    {view === 'mcp' && <Mcp key={databasePath} lang={language} authors={authors} databasePath={databasePath} onClose={close} onBack={() => setView('settings-from-mcp')} />}
     {view === 'export' && <Export onClose={close} authorId={author?.id} postId={post?.id} authors={authors} posts={posts} language={language} notify={notify} databasePath={databasePath} />}
     {view === 'search' && <Search language={language} authors={authors} posts={posts} authorId={author?.id} onClose={close} />}
     {(view === 'newAuthor' || (view === 'editAuthor' && author)) && <AuthorEditor author={view === 'editAuthor' ? author : null} language={language} onClose={close} onSave={saveAuthor} />}

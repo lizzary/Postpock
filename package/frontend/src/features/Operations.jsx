@@ -94,7 +94,7 @@ function Connections({ language, snapshot, onClose }) {
   )
 }
 
-function Settings({ language, settings, onSettingsChange, onClose, notify }) {
+function Settings({ language, settings, onSettingsChange, onClose, onOpen, notify, focusMcpEntry }) {
   const t = pick(language)
   const [path, setPath] = useState(settings.databasePath)
   const [directoryUnavailable, setDirectoryUnavailable] = useState(false)
@@ -158,6 +158,18 @@ function Settings({ language, settings, onSettingsChange, onClose, notify }) {
               <button type="button" className="icon-button" disabled={settings.threads >= 8} aria-label={t('增加线程', 'More workers')} onClick={() => onSettingsChange({ threads: settings.threads + 1 })}><Icon name="plus" size={17} /></button>
             </div>
           </div>
+        </section>
+        <section aria-labelledby="integration-preferences">
+          <h3 id="integration-preferences"><Icon name="link" size={17} />{t('集成', 'Integrations')}</h3>
+          <button type="button" className="op-integration-link" data-initial-focus={focusMcpEntry || undefined}
+            aria-labelledby="mcp-access-title" aria-describedby="mcp-access-description" aria-haspopup="dialog" onClick={() => onOpen('mcp')}>
+            <span className="op-integration-icon"><Icon name="key" size={19} /></span>
+            <span className="op-integration-label">
+              <strong id="mcp-access-title">{t('MCP 配置', 'MCP access')}</strong>
+              <span id="mcp-access-description">{t('管理密钥、作者范围与权限', 'Manage keys, creator access, and permissions')}</span>
+            </span>
+            <Icon name="chevron-right" size={17} className="op-integration-arrow" />
+          </button>
         </section>
       </div>
     </Dialog>
